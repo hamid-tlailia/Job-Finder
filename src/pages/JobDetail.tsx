@@ -11,6 +11,8 @@ import { useNav } from '../ui/nav';
 import { prepare } from '../lib/pipeline';
 import { copy, previewPdf, sendApplication } from '../lib/apply';
 import { QATAR_CITIES } from '../core/qatar';
+import { inQatar, isFresh } from '../core/sources/util';
+import { scoreOf } from '../store/useStore';
 
 function humanize(item: string, t: Dict, lang: Lang): string {
   const [k, v] = item.split(/:(.*)/s);
@@ -59,7 +61,9 @@ export default function JobDetail({ id }: { id: string }) {
   if (!job || !m) return null;
   const pkg = m.pkg;
   const a = m.analysis;
-  const score = a?.score ?? m.localScore;
+  const outside = !inQatar(job);
+  const stale = !isFresh(job);
+  const score = scoreOf(m, job);
   const city = QATAR_CITIES.find((c) => c.id === job.city);
   const Back = lang === 'ar' ? ArrowRight : ArrowLeft;
   const setPkg = (p: Partial<ApplicationPackage>) => pkg && upsertMatch(id, { pkg: { ...pkg, ...p } });
@@ -155,7 +159,13 @@ export default function JobDetail({ id }: { id: string }) {
             </span>
           )}
           <ScoreRing score={score} size={96} stroke={7} />
-          <div className="mt-3 text-xl font-bold">{t.verdict[a?.verdict ?? 'fair']}</div>
+          <div className="mt-3 text-xl font-bold">{outside ? t.job.outsideTitle : t.verdict[a?.verdict ?? 'fair']}</div>
+          {(outside || stale) && (
+            <p className="mt-3 flex items-start gap-2 rounded-2xl bg-warn/10 px-3.5 py-3 text-start text-[13.5px] font-medium leading-relaxed text-warn">
+              <CircleAlert className="mt-0.5 size-4 shrink-0" />
+              {outside ? t.job.outsideBody : t.job.staleBody}
+            </p>
+          )}
           {a?.summary && <p dir="auto" className="mt-2 whitespace-pre-line text-[14px] leading-relaxed text-muted">{a.summary}</p>}
         </motion.div>
       </section>

@@ -10,7 +10,7 @@ import { QATAR_CITIES } from '../core/qatar';
 export function JobCard({ job, match, index = 0 }: { job: Job; match: MatchRecord; index?: number }) {
   const { t, lang, ago } = useT();
   const push = useNav((s) => s.push);
-  const score = scoreOf(match);
+  const score = scoreOf(match, job);
   const city = QATAR_CITIES.find((c) => c.id === job.city);
   const where = city ? (lang === 'ar' ? city.ar : city.en) : job.location;
   return (

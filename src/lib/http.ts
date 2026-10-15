@@ -10,7 +10,7 @@ const MIN_GAP_MS: Record<string, number> = { 'www.linkedin.com': 2500, 'qatar.ta
 /** SerpApi runs a live Google search per call and regularly needs 20–40 s. */
 const READ_TIMEOUT_MS: Record<string, number> = { 'serpapi.com': 75000, 'jooble.org': 45000 };
 /** After a 429 the host is left alone for this long instead of being hammered again. */
-const COOLDOWN_MS = 30 * 60000;
+const COOLDOWN_MS = 10 * 60000;
 const COOLDOWN_KEY = 'jf-cooldown';
 
 export class HttpError extends Error {

@@ -190,3 +190,16 @@ textarea {
 ::selection {
   background: var(--accent-soft);
 }
+
+/* Fields follow the UI direction: right-aligned in Arabic, left-aligned in English,
+   even when the value itself is LTR (phone, email, URL) or RTL. */
+[dir='rtl'] input:not([type='range']),
+[dir='rtl'] select,
+[dir='rtl'] textarea:not([dir='ltr']) {
+  text-align: right;
+}
+[dir='ltr'] input:not([type='range']),
+[dir='ltr'] select,
+[dir='ltr'] textarea:not([dir='rtl']) {
+  text-align: left;
+}

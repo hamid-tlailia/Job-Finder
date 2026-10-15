@@ -10,7 +10,7 @@ export default function Review() {
   const { matches, jobs } = useStore();
   const list = Object.values(matches)
     .filter((m) => (m.status === 'ready' || m.status === 'preparing') && jobs[m.jobId])
-    .sort((a, b) => Number(a.seen) - Number(b.seen) || scoreOf(b) - scoreOf(a));
+    .sort((a, b) => Number(a.seen) - Number(b.seen) || scoreOf(b, jobs[b.jobId]) - scoreOf(a, jobs[a.jobId]));
   return (
     <div className="px-4 pt-safe">
       <h1 className="font-display px-1 pb-1 pt-6 text-[1.85rem] font-bold">{t.review.title}</h1>

@@ -2,6 +2,9 @@ import type { Job, JobSource } from '../types';
 import { attr, between, clean, htmlToText } from '../html';
 import { eachQuery, enrich, normalizeType, nowIso } from './util';
 
+/** Same headers the LinkedIn jobs page sends from a phone browser. */
+const LI_HEADERS = { Referer: 'https://www.linkedin.com/jobs/search', Accept: 'text/html,*/*;q=0.8', 'Accept-Language': 'en-US,en;q=0.9' };
+
 function parseCards(html: string): Job[] {
   const parts = html.split(/<li[\s>]/).slice(1);
   const jobs: Job[] = [];
@@ -40,12 +43,12 @@ export const linkedin: JobSource = {
     // One page (25 newest of the past week) per query keeps LinkedIn from rate-limiting us.
     return eachQuery(ctx.queries, async (q) => {
       const url = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${encodeURIComponent(q)}&location=Qatar&f_TPR=r604800&sortBy=DD&start=0`;
-      return parseCards(await ctx.fetchText(url));
+      return parseCards(await ctx.fetchText(url, { headers: LI_HEADERS }));
     });
   },
   async detail(job, ctx) {
     const id = job.id.split(':')[1];
-    const html = await ctx.fetchText(`https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/${id}`);
+    const html = await ctx.fetchText(`https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/${id}`, { headers: LI_HEADERS });
     const desc = between(html, /class="show-more-less-html__markup[^"]*"[^>]*>/, '</div>') ?? '';
     const criteria = [...html.matchAll(/description__job-criteria-subheader[^>]*>([\s\S]*?)<\/h3>[\s\S]*?description__job-criteria-text[^>]*>([\s\S]*?)<\/span>/g)].map((m) => [clean(m[1]), clean(m[2])]);
     const type = criteria.find(([k]) => /employment type/i.test(k))?.[1];

@@ -26,7 +26,7 @@ export default function Home() {
       (m) => jobs[m.jobId] && m.status !== 'dismissed' && !['applied', 'interview', 'offer', 'rejected'].includes(m.status) && (m.status !== 'new' || listable([jobs[m.jobId]]).length > 0),
     );
     const filtered = all.filter((m) => filter === 'all' || (filter === 'new' ? m.status === 'new' : m.status === filter));
-    return filtered.sort((a, b) => scoreOf(b) - scoreOf(a)).slice(0, 120);
+    return filtered.sort((a, b) => scoreOf(b, jobs[b.jobId]) - scoreOf(a, jobs[a.jobId])).slice(0, 120);
   }, [matches, jobs, filter]);
 
   const counts = useMemo(() => {

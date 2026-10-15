@@ -59,8 +59,8 @@ function TabBar() {
   const { tab, setTab } = useNav();
   const readyCount = useStore((s) => Object.values(s.matches).filter((m) => m.status === 'ready' && !m.seen).length);
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface shadow-[0_-8px_24px_-14px_rgba(0,0,0,0.4)]" style={{ paddingBottom: 'calc(var(--sab) + 6px)' }}>
-      <div className="mx-auto flex max-w-xl px-2 pt-2">
+    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface shadow-[0_-8px_24px_-14px_rgba(0,0,0,0.4)]" style={{ paddingBottom: 'var(--sab)' }}>
+      <div className="mx-auto flex max-w-xl px-2 pt-1.5 pb-1">
         {TABS.map(({ id, icon: Icon }) => {
           const active = tab === id;
           return (
@@ -70,11 +70,11 @@ function TabBar() {
                 haptic();
                 setTab(id);
               }}
-              className={`flex flex-1 flex-col items-center gap-1.5 py-1 text-[11.5px] font-semibold transition-colors ${active ? 'text-accent' : 'text-muted'}`}
+              className={`flex flex-1 flex-col items-center gap-1 py-0.5 text-[11px] font-semibold transition-colors ${active ? 'text-accent' : 'text-muted'}`}
             >
-              <span className="relative grid h-8 w-16 place-items-center">
+              <span className="relative grid h-7 w-14 place-items-center">
                 {active && <motion.span layoutId="tab-pill" transition={spring} className="absolute inset-0 rounded-full" style={{ background: 'var(--pill)' }} />}
-                <Icon className="relative size-[22px]" strokeWidth={active ? 2.4 : 1.9} />
+                <Icon className="relative size-5" strokeWidth={active ? 2.4 : 1.9} />
                 {id === 'review' && readyCount > 0 && (
                   <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-1 end-2 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-accent px-1 text-[10px] text-white ring-2 ring-[var(--surface)]">
                     {readyCount}

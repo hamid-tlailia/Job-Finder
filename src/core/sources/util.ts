@@ -84,6 +84,11 @@ export function onlyQatar(jobs: Job[]): Job[] {
   });
 }
 
+/** True when a job is located in Qatar under the listing rules. */
+export function inQatar(job: Job): boolean {
+  return onlyQatar([job]).length > 0;
+}
+
 /** The listing rules: in Qatar, posted in the last 7 days, still accepting applications. */
 export function listable(jobs: Job[]): Job[] {
   return onlyQatar(jobs).filter((j) => !j.closed && isFresh(j));

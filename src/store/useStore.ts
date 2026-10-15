@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { CvTemplate, Job, MatchRecord, MatchStatus, Profile } from '../core/types';
 import { emptyProfile } from './defaults';
-import { listable } from '../core/sources/util';
+import { inQatar, listable } from '../core/sources/util';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -144,4 +144,5 @@ export const useStore = create<State>()(
   ),
 );
 
-export const scoreOf = (m: MatchRecord) => m.analysis?.score ?? m.localScore;
+/** Fit score shown to the user; a job outside Qatar always scores 0. */
+export const scoreOf = (m: MatchRecord, job?: Job) => (job && !inQatar(job) ? 0 : m.analysis?.score ?? m.localScore);

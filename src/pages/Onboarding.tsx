@@ -3,13 +3,14 @@ import { ArrowLeft, ArrowRight, Bell, FileUp, Globe2, Laptop, MapPin, Moon, Spar
 import { useRef, useState, type ReactNode } from 'react';
 import { useStore } from '../store/useStore';
 import { useT } from '../i18n';
-import { Button, ChipGroup, Field, Input, Segmented, Select, TagInput, TextArea, Toggle, toast } from '../ui/kit';
+import { Button, ChipGroup, Field, Input, Segmented, Select, TagInput, TextArea, Toggle, toast, Slider } from '../ui/kit';
 import { COUNTRIES, QATAR_CITIES } from '../core/qatar';
 import type { Availability, DistancePref, JobType, Lang, Seniority, VisaStatus, Workplace } from '../core/types';
 import { readCvFile } from '../lib/cvImport';
 import { parseCv } from '../ai/claude';
 import { ensureNotifyPermission } from '../lib/notify';
 import { runSearch } from '../lib/pipeline';
+import { MatchLevel } from '../ui/MatchLevel';
 
 export const TITLE_SUGGESTIONS = {
   en: ['Accountant', 'Sales Executive', 'Software Engineer', 'Customer Service', 'Admin Assistant', 'HR Officer', 'Civil Engineer', 'Nurse', 'Teacher', 'Driver', 'Marketing Specialist', 'Receptionist'],
@@ -200,7 +201,7 @@ export default function Onboarding({ onBack }: { onBack: () => void }) {
             <TagInput value={profile.skills} onChange={(v) => setProfile({ skills: v })} placeholder={t.ob.goals.skillsPh} suggestions={SKILL_SUGGESTIONS} />
           </Field>
           <Field label={`${t.ob.goals.years}: ${profile.yearsExperience}`}>
-            <input type="range" min={0} max={30} value={profile.yearsExperience} onChange={(e) => setProfile({ yearsExperience: Number(e.target.value) })} className="w-full accent-[var(--accent)]" />
+            <Slider min={0} max={30} value={profile.yearsExperience} onChange={(v) => setProfile({ yearsExperience: v })} />
           </Field>
           <Field label={`${t.ob.goals.seniority} · ${t.common.optional}`}>
             <ChipGroup<Seniority> options={opts(t.seniority)} value={prefs.seniority} onChange={(v) => setPrefs({ seniority: v })} />
@@ -245,7 +246,7 @@ export default function Onboarding({ onBack }: { onBack: () => void }) {
             {prefs.distance === 'near' && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
                 <Field label={`${t.ob.location.maxKm}: ${prefs.maxKm} ${t.common.km}`}>
-                  <input type="range" min={5} max={80} step={5} value={prefs.maxKm} onChange={(e) => setPrefs({ maxKm: Number(e.target.value) })} className="w-full accent-[var(--accent)]" />
+                  <Slider min={5} max={80} step={5} value={prefs.maxKm} onChange={(v) => setPrefs({ maxKm: v })} />
                 </Field>
               </motion.div>
             )}
@@ -267,7 +268,7 @@ export default function Onboarding({ onBack }: { onBack: () => void }) {
             <ChipGroup<Availability> multi={false} options={opts(t.availability)} value={[prefs.availability]} onChange={(v) => setPrefs({ availability: v[0] })} />
           </Field>
           <Field label={`${t.ob.status.salary}: ${prefs.salaryMinQar ? `${prefs.salaryMinQar.toLocaleString()} ${t.common.qar}` : t.ob.status.salaryAny}`}>
-            <input type="range" min={0} max={40000} step={500} value={prefs.salaryMinQar} onChange={(e) => setPrefs({ salaryMinQar: Number(e.target.value) })} className="w-full accent-[var(--accent)]" />
+            <Slider min={0} max={40000} step={500} value={prefs.salaryMinQar} onChange={(v) => setPrefs({ salaryMinQar: v })} />
           </Field>
         </StepShell>
       ),
@@ -299,9 +300,7 @@ export default function Onboarding({ onBack }: { onBack: () => void }) {
               )}
             </AnimatePresence>
           </div>
-          <Field label={`${t.ob.finish.minScore}: ${prefs.minScore}%`}>
-            <input type="range" min={30} max={90} step={5} value={prefs.minScore} onChange={(e) => setPrefs({ minScore: Number(e.target.value) })} className="w-full accent-[var(--accent)]" />
-          </Field>
+          <MatchLevel />
           <div className="card px-4">
             <Toggle
               checked={settings.notifications}

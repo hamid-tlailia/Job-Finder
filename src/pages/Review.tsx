@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Compass, Inbox } from 'lucide-react';
 import { useNav } from '../ui/nav';
 import { listable } from '../core/sources/util';
+import { prepareThreshold } from '../core/match';
 import { scoreOf, useStore } from '../store/useStore';
 import { useT } from '../i18n';
 import { Button, Empty } from '../ui/kit';
@@ -10,7 +11,7 @@ import { JobCard } from '../ui/JobCard';
 export default function Review() {
   const { t, f } = useT();
   const { matches, jobs } = useStore();
-  const minScore = useStore((s) => s.profile.prefs.minScore);
+  const minScore = useStore((s) => prepareThreshold(s.profile.prefs, 'ai'));
   const setTab = useNav((s) => s.setTab);
   const below = Object.values(matches).filter((m) => m.status === 'new' && jobs[m.jobId] && listable([jobs[m.jobId]]).length > 0).length;
   const list = Object.values(matches)

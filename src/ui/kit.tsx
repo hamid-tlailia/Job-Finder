@@ -350,3 +350,21 @@ export function CompanyAvatar({ name, logo, size = 46 }: { name: string; logo?: 
     </div>
   );
 }
+
+/** Styled range slider: thin rounded track filled up to the thumb (fill follows the reading direction). */
+export function Slider({ value, min, max, step = 1, onChange }: { value: number; min: number; max: number; step?: number; onChange: (v: number) => void }) {
+  const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
+  return (
+    <input
+      type="range"
+      className="range"
+      min={min}
+      max={max}
+      step={step}
+      value={value}
+      style={{ ['--pct' as string]: `${pct}%` }}
+      onChange={(e) => onChange(Number(e.target.value))}
+      onPointerUp={() => haptic()}
+    />
+  );
+}

@@ -1,8 +1,8 @@
 import type { Job, SourceContext } from '../core/types';
 import { SOURCES } from '../core/sources';
 import { listable, settle } from '../core/sources/util';
-import { bestTrack, buildQueries, dedupeKey, localAnalysis, trackProfile } from '../core/match';
-import type { Profile } from '../core/types';
+import { bestTrack, buildQueries, dedupeKey, isStrongMatch, localAnalysis, prepareThreshold, trackProfile } from '../core/match';
+import type { Analysis, Profile } from '../core/types';
 import { templatePackage } from '../core/template';
 import { analyzeJob, generatePackage } from '../ai/claude';
 import { useStore } from '../store/useStore';
@@ -53,7 +53,7 @@ export async function prepare(jobId: string): Promise<void> {
     if (settings.apiKey) {
       const cfg = { apiKey: settings.apiKey, model: settings.model };
       if (!analysis || analysis.by !== 'ai') {
-        const r = await analyzeJob(cfg, profile, job, settings.uiLang);
+        const r = await analyzeJob({ ...cfg, model: settings.fastModel || settings.model }, profile, job, settings.uiLang);
         analysis = r.analysis;
         job = { ...job, ...r.job };
         st.upsertJob(job);
@@ -99,7 +99,7 @@ async function processJobs(all: Job[], c: SourceContext, errors: string[]): Prom
   }
 
   // Deep analysis on the strongest candidates only, to keep AI cost and time bounded.
-  const threshold = Math.max(35, profile.prefs.minScore - 25);
+  const threshold = Math.max(35, prepareThreshold(profile.prefs, 'local') - 25);
   const candidates = scored.filter((x) => x.ls.score >= threshold).slice(0, settings.apiKey ? settings.maxAiPerRun : 15);
   useStore.getState().setRun({ step: 'analyze', done: 0, total: candidates.length });
   let ready = 0;
@@ -116,16 +116,18 @@ async function processJobs(all: Job[], c: SourceContext, errors: string[]): Prom
         useStore.getState().upsertMatch(j.id, { trackId: best.trackId });
         const viewed = trackProfile(profile, profile.tracks?.find((t) => t.id === best.trackId));
         let score = best.score.score;
+        let analysis = undefined as Analysis | undefined;
         if (settings.apiKey) {
-          const r = await analyzeJob({ apiKey: settings.apiKey, model: settings.model }, viewed, job, settings.uiLang);
+          const r = await analyzeJob({ apiKey: settings.apiKey, model: settings.fastModel || settings.model }, viewed, job, settings.uiLang);
           job = { ...job, ...r.job };
           useStore.getState().upsertJob(job);
           useStore.getState().upsertMatch(j.id, { analysis: r.analysis });
           score = r.analysis.score;
+          analysis = r.analysis;
         } else {
           useStore.getState().upsertMatch(j.id, { localScore: score, analysis: localAnalysis(job, viewed, best.score) });
         }
-        if (score >= profile.prefs.minScore) {
+        if (isStrongMatch(profile.prefs, score, analysis)) {
           await prepare(j.id);
           ready++;
         }

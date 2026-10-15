@@ -41,6 +41,8 @@ export interface Preferences {
   industries: string[];
   excludeKeywords: string[];
   minScore: number;
+  /** When true the AI decides which matches are strong enough to prepare; minScore is then ignored. */
+  minScoreAuto?: boolean;
 }
 
 /** A field the person wants to work in, with its own titles, pitch, skills and CV. */
@@ -51,6 +53,8 @@ export interface CareerTrack {
   headline: string;
   summary: string;
   skills: string[];
+  /** Extra search keywords: synonyms and Arabic equivalents of the titles (AI-generated, editable). */
+  keywords?: string[];
   /** Text of the CV the person uses for this field (optional). */
   cvText: string;
   cvName?: string;

@@ -5,7 +5,7 @@ import { Browser } from '@capacitor/browser';
 import { useStore } from '../store/useStore';
 import { useT } from '../i18n';
 import { useNav } from '../ui/nav';
-import { Button, Field, Input, Segmented, SectionTitle, Select, Sheet, Toggle, toast } from '../ui/kit';
+import { Button, Field, Input, Segmented, SectionTitle, Select, Sheet, Toggle, toast, Slider } from '../ui/kit';
 import type { CvTemplate } from '../core/types';
 import { SOURCES } from '../core/sources';
 import { MODELS, testKey } from '../ai/claude';
@@ -94,6 +94,9 @@ export default function Settings() {
           <Field label={t.settings.model}>
             <Select value={settings.model} onChange={(v) => setSettings({ model: v })} options={MODELS.map((m) => ({ id: m.id, label: `${m.label}` }))} />
           </Field>
+          <Field label={t.aiTools.fastModel} hint={t.aiTools.fastHint}>
+            <Select value={settings.fastModel || settings.model} onChange={(v) => setSettings({ fastModel: v })} options={MODELS.map((m) => ({ id: m.id, label: `${m.label}` }))} />
+          </Field>
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -155,7 +158,7 @@ export default function Settings() {
           />
           <div className="py-3">
             <Field label={`${t.settings.maxAi}: ${settings.maxAiPerRun}`}>
-              <input type="range" min={2} max={20} value={settings.maxAiPerRun} onChange={(e) => setSettings({ maxAiPerRun: Number(e.target.value) })} className="w-full accent-[var(--accent)]" />
+              <Slider min={2} max={20} value={settings.maxAiPerRun} onChange={(v) => setSettings({ maxAiPerRun: v })} />
             </Field>
           </div>
         </div>
@@ -202,7 +205,7 @@ export default function Settings() {
           )}
         </Sheet>
         <p className="mt-6 text-center text-xs text-muted">
-          {t.appName} · {t.settings.version} 1.6.2
+          {t.appName} · {t.settings.version} 1.7.0
         </p>
       </div>
     </div>

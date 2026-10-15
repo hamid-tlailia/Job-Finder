@@ -4,12 +4,13 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useStore } from '../store/useStore';
 import { useT } from '../i18n';
 import { useNav } from '../ui/nav';
-import { Button, ChipGroup, Field, Input, Segmented, Select, TagInput, TextArea } from '../ui/kit';
+import { Button, ChipGroup, Field, Input, Segmented, Select, Slider, TagInput, TextArea } from '../ui/kit';
 import { QATAR_CITIES } from '../core/qatar';
 import type { Availability, DistancePref, JobType, Lang, Seniority, VisaStatus, Workplace } from '../core/types';
 import { SKILL_SUGGESTIONS, TITLE_SUGGESTIONS } from './Onboarding';
 import { syncBackground } from '../lib/background';
 import { SuggestionList } from '../ui/Suggestions';
+import { MatchLevel } from '../ui/MatchLevel';
 
 type Section = 'basics' | 'goals' | 'prefs' | 'experience' | 'education' | 'languages';
 const SECTIONS: { id: Section; icon: typeof UserRound }[] = [
@@ -34,10 +35,6 @@ function Group({ title, icon, children }: { title?: string; icon?: ReactNode; ch
       {children}
     </section>
   );
-}
-
-function Slider({ value, min, max, step = 1, onChange }: { value: number; min: number; max: number; step?: number; onChange: (v: number) => void }) {
-  return <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} className="h-8 w-full accent-[var(--accent)]" />;
 }
 
 export default function EditProfile({ section }: { section?: string }) {
@@ -165,9 +162,7 @@ export default function EditProfile({ section }: { section?: string }) {
           </Field>
         </Group>
         <Group title={t.profile.autoSec}>
-          <Field label={`${t.ob.finish.minScore}: ${prefs.minScore}%`}>
-            <Slider value={prefs.minScore} min={30} max={90} step={5} onChange={(v) => setPrefs({ minScore: v })} />
-          </Field>
+          <MatchLevel />
           <Field label={t.profile.exclude}>
             <TagInput value={prefs.excludeKeywords} onChange={(v) => setPrefs({ excludeKeywords: v })} placeholder={t.profile.excludePh} />
           </Field>

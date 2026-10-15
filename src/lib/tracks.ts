@@ -58,6 +58,7 @@ export async function importTrackCv(id: string, file: File): Promise<{ filled: b
       summary: track.summary || d.summary,
       targetTitles: merge(track.targetTitles, d.targetTitles),
       skills: merge(track.skills, d.skills),
+      keywords: merge(track.keywords ?? [], d.keywords),
     });
   }
   const st = useStore.getState();

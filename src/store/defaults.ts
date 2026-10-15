@@ -34,5 +34,6 @@ export const emptyProfile = (): Profile => ({
     industries: [],
     excludeKeywords: [],
     minScore: 60,
+    minScoreAuto: true,
   },
 });

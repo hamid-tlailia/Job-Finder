@@ -20,6 +20,8 @@ export interface Settings {
   notifications: boolean;
   backgroundMinutes: number;
   cvTemplate: 'auto' | CvTemplate;
+  /** Cheaper model for high-volume job analysis; the main model writes CVs and letters. */
+  fastModel: string;
   lastGoogleRun?: string;
 }
 
@@ -42,6 +44,9 @@ interface State {
   run: RunState;
   /** AI comparison of the uploaded CV with the profile, waiting for the user to accept or dismiss. */
   suggestions: ProfileSuggestion[];
+  /** Profile as it was before the last AI polish, for undo. */
+  profileBackup?: Profile;
+  setProfileBackup: (p?: Profile) => void;
   reviewedAt?: string;
   reviewing: boolean;
   setSuggestions: (s: ProfileSuggestion[], reviewedAt?: string) => void;
@@ -74,6 +79,7 @@ const defaultSettings: Settings = {
   notifications: true,
   backgroundMinutes: 60,
   cvTemplate: 'auto',
+  fastModel: 'claude-haiku-5-5',
 };
 
 const newMatch = (id: string): MatchRecord => ({ jobId: id, localScore: 0, status: 'new', seen: false, updatedAt: '' });
@@ -92,6 +98,7 @@ export const useStore = create<State>()(
       run: idleRun,
       suggestions: [],
       reviewing: false,
+      setProfileBackup: (profileBackup) => set({ profileBackup }),
       setSuggestions: (suggestions, reviewedAt) => set((s) => ({ suggestions, reviewedAt: reviewedAt ?? s.reviewedAt })),
       dropSuggestion: (id) => set((s) => ({ suggestions: s.suggestions.filter((x) => x.id !== id) })),
       setReviewing: (reviewing) => set({ reviewing }),

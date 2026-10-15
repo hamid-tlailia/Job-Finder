@@ -2,7 +2,7 @@
 import type { Job, Profile, SourceContext } from '../core/types';
 import { SOURCES } from '../core/sources';
 import { listable } from '../core/sources/util';
-import { bestTrack, buildQueries, dedupeKey } from '../core/match';
+import { bestTrack, buildQueries, dedupeKey, prepareThreshold } from '../core/match';
 import { BROWSER_UA } from '../core/allowlist';
 
 declare const CapacitorKV: { get(k: string): { value: string } | null | undefined; set(k: string, v: string): void };
@@ -63,7 +63,7 @@ addEventListener('checkJobs', async (resolve) => {
         /* one failing board must not stop the others */
       }
     }
-    const threshold = Math.max(35, cfg.profile.prefs.minScore - 15);
+    const threshold = Math.max(35, prepareThreshold(cfg.profile.prefs, 'local') - 10);
     const fresh: Job[] = [];
     for (const j of listable(found)) {
       const key = dedupeKey(j);

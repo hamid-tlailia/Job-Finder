@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import * as z from 'zod/v4';
-import type { Analysis, ApplicationPackage, CvTemplate, Job, Lang, Profile } from '../core/types';
+import type { Analysis, ApplicationPackage, CvTemplate, Job, Lang, Profile, TailoredCv } from '../core/types';
 import { chooseTemplate, contactLine, personalLine, pickChannel, pickLanguage } from '../core/template';
 import { cityOf } from '../core/qatar';
 
@@ -268,6 +268,7 @@ const TrackSchema = z.object({
   headline: z.string().describe('professional title for CVs in this field'),
   summary: z.string().describe('3-4 line professional summary for this field, in the language of the CV'),
   skills: z.array(z.string()).describe('8-12 skills from the candidate data relevant to this field'),
+  keywords: z.array(z.string()).describe('6-10 extra job-board search keywords for this field in Qatar: common synonyms of the titles in English plus their Arabic equivalents (e.g. "Front Desk Agent", "Guest Relations", "موظف استقبال")'),
 });
 
 export type TrackDraft = z.infer<typeof TrackSchema>;
@@ -298,5 +299,83 @@ export async function parseTrackCv(cfg: AiConfig, cvText: string, uiLang: Lang):
     'low',
     `UI language for the name: ${uiLang === 'ar' ? 'Arabic' : 'English'}. This CV targets one career field. Extract that field's name, target titles, headline, summary and skills — only from the CV.\n\n<cv>\n${cvText.slice(0, 30000)}\n</cv>`,
     6000,
+  );
+}
+
+const PolishTrackSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  headline: z.string(),
+  summary: z.string(),
+  targetTitles: z.array(z.string()),
+  skills: z.array(z.string()),
+  keywords: z.array(z.string()),
+});
+
+const PolishSchema = z.object({
+  headline: z.string(),
+  summary: z.string(),
+  targetTitles: z.array(z.string()),
+  skills: z.array(z.string()),
+  experience: z.array(ExperienceSchema),
+  education: z.array(z.object({ degree: z.string(), school: z.string(), year: z.string() })),
+  certifications: z.array(z.string()),
+  languages: z.array(z.object({ name: z.string(), level: z.string() })),
+  tracks: z.array(PolishTrackSchema).describe('every existing track, same ids, polished'),
+  changes: z.array(z.string()).describe('short list, in the UI language, of what was improved'),
+});
+
+export type PolishResult = z.infer<typeof PolishSchema>;
+
+/** One-tap clean-up of the whole profile and its tracks: consistent, recruiter-ready, nothing invented. */
+export async function polishProfile(cfg: AiConfig, p: Profile, uiLang: Lang): Promise<PolishResult> {
+  const { cvText: _cv, prefs: _prefs, ...rest } = p;
+  return structured(
+    cfg,
+    PolishSchema,
+    'medium',
+    `UI language for "changes": ${uiLang === 'ar' ? 'Arabic' : 'English'}.
+Polish this job-seeker profile so it reads like a professional, recruiter-ready record for the Qatar market. Return every field, improved:
+- Fix spelling, grammar and capitalisation; use standard industry titles; keep each text in its current language.
+- Dates as "Mon YYYY" (Arabic month names for Arabic entries); reverse chronological experience; end empty when current.
+- Experience bullets: start with an action verb, state scope or results only when the data supports it, max ~25 words, 2-5 per role.
+- Skills: remove duplicates and near-duplicates, use canonical names (e.g. "Microsoft Excel"), drop soft clichés, most marketable first, max 20.
+- Target titles: 2-5 real job-board titles. Languages: standard levels (Native, Fluent, Professional, Basic).
+- For each track: sharpen its headline, summary, titles and skills for that field, and give 6-10 search keywords (English synonyms + Arabic equivalents).
+- NEVER invent employers, dates, numbers, degrees, certifications or skills. When unsure, keep the original wording.
+List the main improvements in "changes".
+
+<profile>
+${JSON.stringify(rest, null, 1)}
+</profile>`,
+    20000,
+  );
+}
+
+const GenericCvSchema = z.object({
+  headline: z.string(),
+  summary: z.string(),
+  skills: z.array(z.string()),
+  skillGroups: z.array(z.object({ name: z.string(), items: z.array(z.string()) })),
+  highlights: z.array(z.string()),
+  experience: z.array(ExperienceSchema),
+  education: z.array(z.object({ degree: z.string(), school: z.string(), year: z.string() })),
+  certifications: z.array(z.string()),
+  languages: z.array(z.string()),
+});
+
+/** A ready-to-send CV for a career field (not tied to one posting), written in the requested language. */
+export async function generateFieldCv(cfg: AiConfig, p: Profile, lang: Lang): Promise<Omit<TailoredCv, 'language' | 'name' | 'contact' | 'personal'>> {
+  return structured(
+    cfg,
+    GenericCvSchema,
+    'medium',
+    `Write a complete, ATS-friendly CV for this candidate targeting the field described by their headline and target titles (${p.targetTitles.slice(0, 4).join(', ')}), in ${lang === 'ar' ? 'Modern Standard Arabic' : 'professional English'}.
+Lead with the experience and skills most relevant to that field; keep other roles brief so there are no gaps. Skills grouped into 2-4 categories; 3-4 highlights. Dates as "Mon YYYY". Never invent facts.
+
+<candidate>
+${profileBrief(p)}
+</candidate>`,
+    12000,
   );
 }

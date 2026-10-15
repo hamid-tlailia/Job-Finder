@@ -1,5 +1,6 @@
 import { motion } from 'motion/react';
-import { ArrowLeft, ArrowRight, Check, FileCheck2, FileUp, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Download, FileCheck2, FileUp, Trash2 } from 'lucide-react';
+import { CvDownloadSheet } from '../ui/CvDownload';
 import { useRef, useState } from 'react';
 import { useStore } from '../store/useStore';
 import { useT } from '../i18n';
@@ -15,6 +16,7 @@ export default function EditTrack({ id }: { id: string }) {
   const track = useStore((s) => s.profile.tracks?.find((x) => x.id === id));
   const apiKey = useStore((s) => s.settings.apiKey);
   const [reading, setReading] = useState(false);
+  const [dl, setDl] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const Back = lang === 'ar' ? ArrowRight : ArrowLeft;
   if (!track) return null;
@@ -81,6 +83,9 @@ export default function EditTrack({ id }: { id: string }) {
           <Field label={t.ob.goals.titles}>
             <TagInput value={track.targetTitles} onChange={(v) => set({ targetTitles: v })} placeholder={t.ob.goals.titlesPh} suggestions={TITLE_SUGGESTIONS[lang]} />
           </Field>
+          <Field label={t.tracks.keywords} hint={t.tracks.keywordsHint}>
+            <TagInput value={track.keywords ?? []} onChange={(v) => set({ keywords: v })} />
+          </Field>
           <Field label={t.ob.basics.headline}>
             <Input value={track.headline} placeholder={t.ob.basics.headlinePh} onChange={(e) => set({ headline: e.target.value })} />
           </Field>
@@ -91,6 +96,11 @@ export default function EditTrack({ id }: { id: string }) {
             <TagInput value={track.skills} onChange={(v) => set({ skills: v })} placeholder={t.ob.goals.skillsPh} suggestions={SKILL_SUGGESTIONS} />
           </Field>
         </section>
+
+        <Button variant="outline" size="lg" className="w-full" icon={<Download className="size-5" />} onClick={() => setDl(true)}>
+          {t.aiTools.download}
+        </Button>
+        <CvDownloadSheet open={dl} onClose={() => setDl(false)} trackId={id} />
 
         <Button
           variant="ghost"

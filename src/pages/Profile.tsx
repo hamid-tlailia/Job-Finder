@@ -2,8 +2,10 @@ import { motion } from 'motion/react';
 import { useEffect } from 'react';
 import { CvActions, SuggestionList } from '../ui/Suggestions';
 import { TracksCard } from '../ui/TracksCard';
+import { ChipAccordion } from '../ui/ChipAccordion';
+import { AiTools } from '../ui/AiTools';
 import { localGaps, runProfileReview } from '../lib/profileReview';
-import { CircleAlert, FileText, ChevronLeft, ChevronRight, GraduationCap, Languages, Mail, MapPin, Pencil, Phone, Settings2, SlidersHorizontal, Award, BriefcaseBusiness } from 'lucide-react';
+import { CircleAlert, FileText, Sparkle, Target, ChevronLeft, ChevronRight, GraduationCap, Languages, Mail, MapPin, Pencil, Phone, Settings2, SlidersHorizontal, Award, BriefcaseBusiness } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useT } from '../i18n';
 import { useNav } from '../ui/nav';
@@ -71,6 +73,7 @@ export default function ProfilePage() {
         </div>
       </header>
       <div className="space-y-4 px-4 pt-2">
+        <AiTools />
         <div className="card space-y-3 p-4">
           <h3 className="flex items-center gap-2 text-[14.5px] font-bold">
             <FileText className="size-4 text-gold" />
@@ -98,24 +101,8 @@ export default function ProfilePage() {
             </ul>
           </div>
         )}
-        <div className="card p-4">
-          <div className="mb-2 text-[13px] font-semibold text-muted">{t.ob.goals.titles}</div>
-          <div className="flex flex-wrap gap-1.5">
-            {p.targetTitles.map((x) => (
-              <span key={x} className="rounded-full bg-accent-soft px-3 py-1 text-[13px] font-semibold text-accent">
-                {x}
-              </span>
-            ))}
-          </div>
-          <div className="mb-2 mt-4 text-[13px] font-semibold text-muted">{t.ob.goals.skills}</div>
-          <div className="flex flex-wrap gap-1.5">
-            {p.skills.map((x) => (
-              <span key={x} className="rounded-full bg-surface-2 px-3 py-1 text-[13px]">
-                {x}
-              </span>
-            ))}
-          </div>
-        </div>
+        <ChipAccordion title={t.ob.goals.titles} icon={<Target className="size-4" />} items={p.targetTitles} tone="accent" />
+        <ChipAccordion title={t.ob.goals.skills} icon={<Sparkle className="size-4" />} items={p.skills} />
         <div className="card divide-y divide-[var(--line)] overflow-hidden">
           {rows.map(({ icon: Icon, label, section, value }) => (
             <button key={label} onClick={() => push({ name: 'editProfile', section })} className="flex w-full items-center gap-3 px-4 py-4 text-start active:bg-surface-2">

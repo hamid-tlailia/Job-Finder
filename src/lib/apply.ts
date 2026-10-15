@@ -36,6 +36,16 @@ function download(name: string, blob: Blob): void {
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
+/** Opens the system share sheet (native) or a new tab (web) for a generated PDF. */
+export async function sharePdf(name: string, data: string, blob: Blob): Promise<void> {
+  if (isNative) {
+    const uri = await writeCache(name, data);
+    await Share.share({ title: name, files: [uri], dialogTitle: name });
+  } else {
+    download(name, blob);
+  }
+}
+
 export async function previewPdf(p: Profile, job: Job, pkg: ApplicationPackage, which: 'cv' | 'letter'): Promise<void> {
   const files = await buildPdfs(p, job, pkg);
   const f = files[which];

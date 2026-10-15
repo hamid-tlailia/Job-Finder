@@ -18,19 +18,22 @@ export function trackProfile(p: Profile, track?: CareerTrack): Profile {
     ...p,
     headline: track.headline || p.headline,
     summary: track.summary || p.summary,
-    targetTitles: track.targetTitles.length ? track.targetTitles : p.targetTitles,
+    // Keywords count as titles for matching, so synonyms and Arabic postings still score as relevant.
+    targetTitles: [...(track.targetTitles.length ? track.targetTitles : p.targetTitles), ...(track.keywords ?? [])],
     skills: track.skills.length ? track.skills : p.skills,
     cvText: track.cvText || p.cvText,
   };
 }
 
 /** Search keywords: with tracks, titles are taken round-robin so every track is searched. */
-export function buildQueries(profile: Profile, max = 6): string[] {
-  const tracks = (profile.tracks ?? []).filter((t) => t.targetTitles.length);
+export function buildQueries(profile: Profile, max = 8): string[] {
+  const tracks = (profile.tracks ?? []).filter((t) => t.targetTitles.length || t.keywords?.length);
   let q: string[];
   if (tracks.length) {
     q = [];
-    for (let i = 0; q.length < max * 2 && tracks.some((t) => t.targetTitles[i]); i++) for (const t of tracks) if (t.targetTitles[i]) q.push(t.targetTitles[i]);
+    // Titles first, then keywords, taking one from each track in turn so every field is covered.
+    const lists = tracks.map((t) => [...t.targetTitles, ...(t.keywords ?? [])]);
+    for (let i = 0; q.length < max * 2 && lists.some((l) => l[i]); i++) for (const l of lists) if (l[i]) q.push(l[i]);
   } else {
     const titles = profile.targetTitles.map((t) => t.trim()).filter(Boolean);
     q = titles.length ? titles : profile.headline ? [profile.headline] : profile.skills.slice(0, 2);
@@ -85,7 +88,8 @@ export function localScore(job: Job, p: Profile): LocalScore {
   if (bestTitle >= 0.7) reasons.push('title');
 
   const matched = p.skills.filter((s) => s.trim().length > 1 && text.includes(s.trim().toLowerCase()));
-  if (bestTitle < 0.34 && matched.length < 2) return { score: 0, reasons, gaps, blocked: 'irrelevant' };
+  // Unrelated titles only pass on a strong skills overlap, so other fields do not leak into the feed.
+  if (bestTitle < 0.34 && matched.length < 3) return { score: 0, reasons, gaps, blocked: 'irrelevant' };
   score += Math.min(30, matched.length * 5);
   if (matched.length) reasons.push(`skills:${matched.slice(0, 6).join(', ')}`);
 
@@ -156,4 +160,18 @@ export function localAnalysis(job: Job, _p: Profile, ls: LocalScore): Analysis {
     language: job.language ?? 'en',
     by: 'local',
   };
+}
+
+/** Score a job needs before an application is prepared automatically. */
+export function prepareThreshold(prefs: Profile['prefs'], by: 'ai' | 'local'): number {
+  if (prefs.minScoreAuto === false) return prefs.minScore;
+  // Auto: the AI's calibrated score already weighs blockers, so a "good" fit (65+) is enough;
+  // the keyword score is coarser and gets a slightly lower bar.
+  return by === 'ai' ? 65 : 55;
+}
+
+/** True when a match should be prepared without asking. */
+export function isStrongMatch(prefs: Profile['prefs'], score: number, analysis?: Analysis): boolean {
+  if (prefs.minScoreAuto !== false && analysis?.by === 'ai') return analysis.verdict === 'excellent' || analysis.verdict === 'good' || score >= 65;
+  return score >= prepareThreshold(prefs, analysis?.by ?? 'local');
 }

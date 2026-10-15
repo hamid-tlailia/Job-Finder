@@ -75,6 +75,7 @@ const AnalysisSchema = z.object({
   contactEmail: z.string().describe('email to send the application to if the posting gives one, else empty'),
   whatsappNumber: z.string().describe('WhatsApp number in +974 format if the posting asks to apply by WhatsApp, else empty'),
   applicationInstructions: z.string().describe('special instructions such as a required email subject or reference code, else empty'),
+  locatedInQatar: z.boolean().describe('false when the posting is actually for a workplace outside Qatar (e.g. the company, title or text names another city or country), even if the listed location says Doha'),
 });
 
 export async function analyzeJob(cfg: AiConfig, p: Profile, job: Job, uiLang: Lang): Promise<{ analysis: Analysis; job: Partial<Job> }> {
@@ -96,7 +97,7 @@ ${jobBrief(job)}
   );
   return {
     analysis: {
-      score: Math.round(Math.max(0, Math.min(100, r.score))),
+      score: r.locatedInQatar ? Math.round(Math.max(0, Math.min(100, r.score))) : 0,
       verdict: r.verdict,
       reasons: r.reasons,
       gaps: r.gaps,
@@ -106,6 +107,7 @@ ${jobBrief(job)}
       by: 'ai',
     },
     job: {
+      closed: job.closed || !r.locatedInQatar || undefined,
       contactEmail: job.contactEmail || r.contactEmail || undefined,
       contactPhone: job.contactPhone || r.whatsappNumber || undefined,
     },

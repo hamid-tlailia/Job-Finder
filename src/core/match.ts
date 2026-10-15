@@ -165,13 +165,13 @@ export function localAnalysis(job: Job, _p: Profile, ls: LocalScore): Analysis {
 /** Score a job needs before an application is prepared automatically. */
 export function prepareThreshold(prefs: Profile['prefs'], by: 'ai' | 'local'): number {
   if (prefs.minScoreAuto === false) return prefs.minScore;
-  // Auto: the AI's calibrated score already weighs blockers, so a "good" fit (65+) is enough;
+  // Auto: the AI's calibrated score already weighs blockers, so 60+ (a decent fit) is enough;
   // the keyword score is coarser and gets a slightly lower bar.
-  return by === 'ai' ? 65 : 55;
+  return by === 'ai' ? 60 : 55;
 }
 
 /** True when a match should be prepared without asking. */
 export function isStrongMatch(prefs: Profile['prefs'], score: number, analysis?: Analysis): boolean {
-  if (prefs.minScoreAuto !== false && analysis?.by === 'ai') return analysis.verdict === 'excellent' || analysis.verdict === 'good' || score >= 65;
+  if (prefs.minScoreAuto !== false && analysis?.by === 'ai') return analysis.verdict === 'excellent' || analysis.verdict === 'good' || score >= 60;
   return score >= prepareThreshold(prefs, analysis?.by ?? 'local');
 }

@@ -124,6 +124,10 @@ async function processJobs(all: Job[], c: SourceContext, errors: string[]): Prom
           useStore.getState().upsertMatch(j.id, { analysis: r.analysis });
           score = r.analysis.score;
           analysis = r.analysis;
+          if (job.closed) {
+            useStore.getState().upsertMatch(j.id, { status: 'dismissed' });
+            return;
+          }
         } else {
           useStore.getState().upsertMatch(j.id, { localScore: score, analysis: localAnalysis(job, viewed, best.score) });
         }
@@ -204,4 +208,23 @@ export async function runSearch(): Promise<{ found: number; fresh: number; ready
   if (ready > 0 && settings.notifications) await notifyReady(ready);
   void syncBackground();
   return { found: all.length, fresh, ready };
+}
+
+/**
+ * Prepares jobs that were analysed earlier but not prepared (e.g. the auto threshold changed),
+ * bounded by the per-run AI budget.
+ */
+export async function prepareStrongPending(): Promise<number> {
+  const { matches, jobs, profile, settings, run } = useStore.getState();
+  if (run.running || !settings.autoPrepare) return 0;
+  const todo = Object.values(matches)
+    .filter((m) => m.status === 'new' && m.analysis && jobs[m.jobId] && listable([jobs[m.jobId]]).length > 0 && isStrongMatch(profile.prefs, m.analysis.score, m.analysis))
+    .sort((a, b) => (b.analysis?.score ?? 0) - (a.analysis?.score ?? 0))
+    .slice(0, settings.maxAiPerRun);
+  let ready = 0;
+  await settle(todo, 3, async (m) => {
+    await prepare(m.jobId);
+    ready++;
+  });
+  return ready;
 }

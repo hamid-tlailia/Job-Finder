@@ -10,7 +10,7 @@ import { Toaster, spring } from './ui/kit';
 import { haptic } from './ui/haptics';
 import { useT } from './i18n';
 import { isNative } from './lib/http';
-import { ingestBackground, runSearch } from './lib/pipeline';
+import { ingestBackground, prepareStrongPending, runSearch } from './lib/pipeline';
 import { BackgroundRunner } from '@capacitor/background-runner';
 import { onNotificationTap } from './lib/notify';
 import { syncBackground } from './lib/background';
@@ -131,7 +131,7 @@ function Main() {
 /** Imports jobs found by the background check and shows Review when applications were prepared. */
 async function openPending(): Promise<void> {
   try {
-    const ready = await ingestBackground();
+    const ready = (await ingestBackground()) + (await prepareStrongPending());
     if (ready > 0) useNav.getState().setTab('review');
   } catch {
     /* next update retries */

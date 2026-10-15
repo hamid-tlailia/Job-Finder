@@ -64,7 +64,12 @@ export function JobCard({ job, match, index = 0 }: { job: Job; match: MatchRecor
           </span>
         )}
         {match.status === 'saved' && <Bookmark className="size-4 fill-gold text-gold" />}
-        {match.analysis?.by === 'ai' && match.status === 'new' && <Sparkles className="size-4 text-gold" />}
+        {match.analysis?.by === 'ai' && match.status === 'new' && (
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-bold text-muted">
+            <Sparkles className="size-3 text-gold" />
+            {t.verdict[match.analysis.verdict]}
+          </span>
+        )}
       </div>
     </motion.button>
   );

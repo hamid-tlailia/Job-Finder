@@ -1,4 +1,4 @@
-import { AnimatePresence, motion, type HTMLMotionProps } from 'motion/react';
+import { AnimatePresence, motion, useDragControls, type HTMLMotionProps } from 'motion/react';
 import { Check, Loader2, X } from 'lucide-react';
 import { isValidElement, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { haptic } from './haptics';
@@ -244,25 +244,31 @@ export function ScoreRing({ score, size = 56, stroke = 5, label }: { score: numb
 }
 
 export function Sheet({ open, onClose, children, title }: { open: boolean; onClose: () => void; children: ReactNode; title?: ReactNode }) {
+  // Drag-to-close starts only from the handle, so swiping inside the sheet scrolls its content.
+  const controls = useDragControls();
   return (
     <AnimatePresence>
       {open && (
         <>
           <motion.div className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[2px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
           <motion.div
-            className="pb-safe fixed inset-x-0 bottom-0 z-50 max-h-[88vh] overflow-y-auto rounded-t-[2rem] border-t border-line bg-surface px-5 pt-3"
+            className="pb-safe fixed inset-x-0 bottom-0 z-50 flex max-h-[88vh] flex-col rounded-t-[2rem] border-t border-line bg-surface"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={softSpring}
             drag="y"
+            dragListener={false}
+            dragControls={controls}
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={{ top: 0, bottom: 0.6 }}
-            onDragEnd={(_, i) => i.offset.y > 120 && onClose()}
+            onDragEnd={(_, i) => (i.offset.y > 100 || i.velocity.y > 600) && onClose()}
           >
-            <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-line" />
-            {title && <h3 className="font-display mb-4 text-xl font-semibold">{title}</h3>}
-            {children}
+            <div onPointerDown={(e) => controls.start(e)} className="shrink-0 cursor-grab touch-none px-5 pb-1 pt-3">
+              <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-line" />
+              {title && <h3 className="font-display mb-2 text-xl font-semibold">{title}</h3>}
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-2">{children}</div>
           </motion.div>
         </>
       )}
@@ -346,7 +352,7 @@ export function CompanyAvatar({ name, logo, size = 46 }: { name: string; logo?: 
   const initials = (name || '?').split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
   return (
     <div className="grid shrink-0 place-items-center overflow-hidden rounded-2xl border border-line bg-surface-2 font-bold text-accent" style={{ width: size, height: size, fontSize: size * 0.34 }}>
-      {logo && !broken ? <img src={logo} alt="" className="size-full object-contain p-1.5" onError={() => setBroken(true)} loading="lazy" /> : initials}
+      {logo && !broken ? <img src={logo} alt="" className="size-full bg-white object-cover" onError={() => setBroken(true)} loading="lazy" /> : initials}
     </div>
   );
 }

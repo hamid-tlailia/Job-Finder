@@ -141,7 +141,7 @@ export default function Settings() {
           </Button>
         </div>
         <p className="mt-6 text-center text-xs text-muted">
-          {t.appName} · {t.settings.version} 1.0.0
+          {t.appName} · {t.settings.version} 1.1.0
         </p>
       </div>
     </div>

@@ -257,9 +257,17 @@ export default function JobDetail({ id }: { id: string }) {
                       <Field label={t.job.summary}>
                         <TextArea rows={5} value={pkg.cv.summary} onChange={(e) => setCv({ summary: e.target.value })} />
                       </Field>
-                      <Field label={t.job.skills}>
-                        <TagInput value={pkg.cv.skills} onChange={(v) => setCv({ skills: v })} />
-                      </Field>
+                      {pkg.cv.skillGroups?.length ? (
+                        pkg.cv.skillGroups.map((g, gi) => (
+                          <Field key={gi} label={`${t.job.skills} · ${g.name}`}>
+                            <TagInput value={g.items} onChange={(v) => setCv({ skillGroups: pkg.cv.skillGroups!.map((x, j) => (j === gi ? { ...x, items: v } : x)) })} />
+                          </Field>
+                        ))
+                      ) : (
+                        <Field label={t.job.skills}>
+                          <TagInput value={pkg.cv.skills} onChange={(v) => setCv({ skills: v })} />
+                        </Field>
+                      )}
                       {pkg.cv.experience.map((e, i) => (
                         <Field key={i} label={`${e.title} — ${e.company}`}>
                           <TextArea

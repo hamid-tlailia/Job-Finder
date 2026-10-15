@@ -105,7 +105,11 @@ export interface TailoredCv {
   headline: string;
   contact: string[];
   summary: string;
+  /** e.g. "Nationality: Egyptian", "Visa: Transferable" — expected on Gulf CVs. */
+  personal?: string[];
   skills: string[];
+  /** Skills organised by category; when present the PDF prints these instead of the flat list. */
+  skillGroups?: { name: string; items: string[] }[];
   experience: ExperienceItem[];
   education: EducationItem[];
   certifications: string[];

@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import * as z from 'zod/v4';
 import type { Analysis, ApplicationPackage, Job, Lang, Profile } from '../core/types';
-import { pickChannel, pickLanguage } from '../core/template';
+import { contactLine, personalLine, pickChannel, pickLanguage } from '../core/template';
 import { cityOf } from '../core/qatar';
 
 export const MODELS = [
@@ -125,7 +125,8 @@ const PackageSchema = z.object({
   headline: z.string(),
   summary: z.string().describe('3-4 line professional summary tailored to this job'),
   skills: z.array(z.string()).describe('10-16 skills, most relevant to the job first, using the posting wording where truthful'),
-  experience: z.array(ExperienceSchema).describe('the candidate roles, most relevant bullets first, 3-5 achievement bullets each'),
+  skillGroups: z.array(z.object({ name: z.string(), items: z.array(z.string()) })).describe('the same skills organised into 2-4 categories such as Technical, Software & Tools, Professional, each with 3-6 items'),
+  experience: z.array(ExperienceSchema).describe('the candidate roles in reverse chronological order; dates as "Mon YYYY" (or the Arabic month name), end empty if current; 3-5 bullets each, most relevant first, each starting with a strong action verb and stating scope or a measurable result when the candidate data supports it, max ~25 words'),
   education: z.array(z.object({ degree: z.string(), school: z.string(), year: z.string() })),
   certifications: z.array(z.string()),
   languages: z.array(z.string()),
@@ -145,6 +146,7 @@ export async function generatePackage(cfg: AiConfig, p: Profile, job: Job, analy
     'medium',
     `Write the complete application for this job in ${lang === 'ar' ? 'Modern Standard Arabic (formal, professional)' : 'professional British/International English'}.
 - Tailor the CV to pass ATS screening for this exact posting: mirror its keywords where truthful, lead with the most relevant achievements, keep it to what fits on 1-2 pages.
+- CV style: concise, factual, recruiter-friendly. No first person ("I"), no clichés ("hard-working", "team player"), no photo-style personal data beyond what is given. Summary: 3-4 lines stating title, years of experience, core expertise and the value brought to this employer.
 - The cover letter must name the company and role, connect 2-3 concrete achievements to the key requirements, and mention availability and visa status positively when relevant.
 - Sign everything with the candidate's real name and phone. Never use placeholders like [Company].
 ${analysis?.keyRequirements.length ? `Key requirements: ${analysis.keyRequirements.join('; ')}` : ''}
@@ -158,7 +160,6 @@ ${jobBrief(job)}
 </job>`,
     16000,
   );
-  const city = cityOf(p.city);
   const { channel, target } = pickChannel(job);
   return {
     language: lang,
@@ -166,9 +167,11 @@ ${jobBrief(job)}
       language: lang,
       name: p.fullName,
       headline: r.headline,
-      contact: [p.phone, p.email, p.linkedin, city ? (lang === 'ar' ? `${city.ar}، قطر` : `${city.en}, Qatar`) : ''].filter(Boolean),
+      contact: contactLine(p, lang),
       summary: r.summary,
+      personal: personalLine(p, lang),
       skills: r.skills,
+      skillGroups: r.skillGroups.filter((g) => g.items.length),
       experience: r.experience,
       education: r.education,
       certifications: r.certifications,

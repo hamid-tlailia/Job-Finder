@@ -1,5 +1,5 @@
 import type { ApplicationPackage, Channel, Job, Lang, Profile, TailoredCv } from './types';
-import { cityOf } from './qatar';
+import { QATAR_CITIES, cityOf } from './qatar';
 
 export function pickLanguage(job: Job, p: Profile): Lang {
   if (p.prefs.cvLanguage !== 'auto') return p.prefs.cvLanguage;
@@ -12,9 +12,28 @@ export function pickChannel(job: Job): { channel: Channel; target: string } {
   return { channel: 'website', target: job.applyUrl ?? job.url };
 }
 
-function contactLine(p: Profile, lang: Lang): string[] {
-  const city = cityOf(p.city) ?? undefined;
-  return [p.phone, p.email, p.linkedin, city ? (lang === 'ar' ? `${city.ar}، قطر` : `${city.en}, Qatar`) : ''].filter(Boolean);
+const VISA = {
+  en: { citizen: 'Qatari national', resident_transferable: 'Qatar resident — transferable visa', resident_noc: 'Qatar resident — NOC available', family_visa: 'Family visa (no sponsorship needed)', need_sponsorship: 'Requires visa sponsorship' },
+  ar: { citizen: 'مواطن قطري', resident_transferable: 'مقيم في قطر — إقامة قابلة للتحويل', resident_noc: 'مقيم في قطر — يتوفر NOC', family_visa: 'إقامة عائلية (لا يحتاج كفالة)', need_sponsorship: 'يحتاج كفالة وتأشيرة' },
+};
+const AVAIL = {
+  en: { immediate: 'Immediate', two_weeks: 'Within 2 weeks', one_month: 'Within 1 month', two_months_plus: 'After notice period' },
+  ar: { immediate: 'فوري', two_weeks: 'خلال أسبوعين', one_month: 'خلال شهر', two_months_plus: 'بعد فترة الإشعار' },
+};
+
+/** Personal details Gulf employers look for at the top of a CV. */
+export function personalLine(p: Profile, lang: Lang): string[] {
+  const ar = lang === 'ar';
+  return [
+    p.nationality && `${ar ? 'الجنسية' : 'Nationality'}: ${p.nationality}`,
+    `${ar ? 'الإقامة' : 'Visa'}: ${VISA[lang][p.prefs.visaStatus]}`,
+    `${ar ? 'متاح للعمل' : 'Availability'}: ${AVAIL[lang][p.prefs.availability]}`,
+  ].filter(Boolean) as string[];
+}
+
+export function contactLine(p: Profile, lang: Lang): string[] {
+  const city = cityOf(p.city) ?? QATAR_CITIES.find((c) => c.id === p.city);
+  return [p.phone, p.email, city ? (lang === 'ar' ? `${city.ar}، قطر` : `${city.en}, Qatar`) : '', p.linkedin.replace(/^https?:\/\/(www\.)?/, '')].filter(Boolean);
 }
 
 function role(p: Profile): string {
@@ -41,6 +60,7 @@ export function baseCv(p: Profile, job: Job, lang: Lang): TailoredCv {
     headline: role(p) || job.title,
     contact: contactLine(p, lang),
     summary: p.summary || defaultSummary(p, lang),
+    personal: personalLine(p, lang),
     skills: skills.slice(0, 14),
     experience: p.experience,
     education: p.education,

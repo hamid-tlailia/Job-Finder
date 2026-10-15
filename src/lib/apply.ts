@@ -16,7 +16,7 @@ function fileBase(p: Profile, job: Job, kind: string): string {
 export async function buildPdfs(p: Profile, job: Job, pkg: ApplicationPackage) {
   const fonts = await loadFonts();
   const cv = buildCvPdf(pkg.cv, fonts);
-  const letter = buildLetterPdf(p.fullName, pkg.cv.contact, pkg.coverLetter, pkg.language, fonts);
+  const letter = buildLetterPdf(pkg.cv, pkg.coverLetter, { company: job.company, jobTitle: job.title }, fonts);
   return {
     cv: { name: fileBase(p, job, pkg.language === 'ar' ? 'سيرة' : 'CV'), data: cv.output('datauristring').split(',')[1], blob: cv.output('blob') },
     letter: { name: fileBase(p, job, pkg.language === 'ar' ? 'خطاب' : 'Cover_Letter'), data: letter.output('datauristring').split(',')[1], blob: letter.output('blob') },

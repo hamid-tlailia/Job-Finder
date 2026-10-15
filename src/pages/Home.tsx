@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { ExternalLink, Radar, RefreshCw, Settings2, Sparkles, TriangleAlert } from 'lucide-react';
+import { ExternalLink, Radar, RefreshCw, Settings2, SlidersHorizontal, Sparkles, TriangleAlert } from 'lucide-react';
+import { QuickPrefs } from '../ui/QuickPrefs';
 import { useMemo, useState } from 'react';
 import { Browser } from '@capacitor/browser';
 import { scoreOf, useStore } from '../store/useStore';
@@ -20,6 +21,7 @@ export default function Home() {
   const push = useNav((s) => s.push);
   const [filter, setFilter] = useState<Filter>('all');
   const [showErrors, setShowErrors] = useState(false);
+  const [prefsOpen, setPrefsOpen] = useState(false);
 
   const list = useMemo(() => {
     const all = Object.values(matches).filter(
@@ -62,9 +64,14 @@ export default function Home() {
             <Logo size={34} />
             <span className="font-display text-[17px] font-semibold">{t.appName}</span>
           </div>
-          <button onClick={() => push({ name: 'settings' })} className="grid size-10 place-items-center rounded-full border border-line bg-surface/70">
-            <Settings2 className="size-5" />
-          </button>
+          <div className="flex gap-2">
+            <button onClick={() => setPrefsOpen(true)} aria-label={t.home.quickPrefs} className="grid size-10 place-items-center rounded-full border border-line bg-surface">
+              <SlidersHorizontal className="size-5" />
+            </button>
+            <button onClick={() => push({ name: 'settings' })} aria-label={t.settings.title} className="grid size-10 place-items-center rounded-full border border-line bg-surface">
+              <Settings2 className="size-5" />
+            </button>
+          </div>
         </div>
         <motion.h1 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="font-display mt-5 text-[1.85rem] font-bold leading-tight">
           {first ? f(t.home.hello, { name: first }) : t.home.helloAnon}
@@ -178,6 +185,7 @@ export default function Home() {
         </div>
       </div>
 
+      <QuickPrefs open={prefsOpen} onClose={() => setPrefsOpen(false)} onSearch={search} />
     </div>
   );
 }

@@ -194,7 +194,7 @@ export default function Settings() {
           )}
         </Sheet>
         <p className="mt-6 text-center text-xs text-muted">
-          {t.appName} · {t.settings.version} 1.4.2
+          {t.appName} · {t.settings.version} 1.4.3
         </p>
       </div>
     </div>

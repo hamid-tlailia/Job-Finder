@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, type HTMLMotionProps } from 'motion/react';
 import { Check, Loader2, X } from 'lucide-react';
-import { isValidElement, useEffect, useId, useState, type ReactNode } from 'react';
+import { isValidElement, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { haptic } from './haptics';
 
 export const spring = { type: 'spring', stiffness: 420, damping: 34 } as const;
@@ -78,9 +78,25 @@ export function ChipGroup<T extends string>({ options, value, onChange, multi = 
 }
 
 export function Segmented<T extends string>({ options, value, onChange }: { options: { id: T; label: string; icon?: ReactNode }[]; value: T; onChange: (v: T) => void }) {
-  const id = useId();
+  // One indicator that slides horizontally by index; a shared-layout animation would
+  // mis-measure inside scrolled screens and fly in from below.
+  const ref = useRef<HTMLDivElement>(null);
+  const [rtl, setRtl] = useState(false);
+  useLayoutEffect(() => {
+    if (ref.current) setRtl(getComputedStyle(ref.current).direction === 'rtl');
+  });
+  const index = Math.max(0, options.findIndex((o) => o.id === value));
+  const n = options.length;
   return (
-    <div className="flex rounded-2xl border border-line bg-surface-2 p-1">
+    <div ref={ref} className="relative flex rounded-2xl border border-line bg-surface-2 p-1">
+      <motion.span
+        aria-hidden
+        className="absolute bottom-1 top-1 rounded-xl bg-surface shadow-sm"
+        style={{ width: `calc((100% - 8px) / ${n})`, insetInlineStart: 4 }}
+        initial={false}
+        animate={{ x: `${(rtl ? -1 : 1) * index * 100}%` }}
+        transition={spring}
+      />
       {options.map((o) => (
         <button
           key={o.id}
@@ -89,13 +105,10 @@ export function Segmented<T extends string>({ options, value, onChange }: { opti
             haptic();
             onChange(o.id);
           }}
-          className={`relative flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl text-sm font-semibold transition-colors ${value === o.id ? 'text-ink' : 'text-muted'}`}
+          className={`relative z-10 flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-1.5 py-1.5 text-center text-[13.5px] font-semibold leading-tight transition-colors ${value === o.id ? 'text-ink' : 'text-muted'}`}
         >
-          {value === o.id && <motion.span layoutId={`seg-${id}`} transition={spring} className="absolute inset-0 rounded-xl bg-surface shadow-sm" />}
-          <span className="relative z-10 flex items-center gap-1.5">
-            {o.icon}
-            {o.label}
-          </span>
+          {o.icon}
+          <span>{o.label}</span>
         </button>
       ))}
     </div>

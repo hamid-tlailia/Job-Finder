@@ -25,7 +25,7 @@ export default function Settings() {
     </button>
   );
   const guides = {
-    claude: { title: t.keyGuide.claudeTitle, steps: t.keyGuide.claude, note: t.keyGuide.claudeCost, url: 'https://console.anthropic.com/settings/keys' },
+    claude: { title: t.keyGuide.claudeTitle, steps: t.keyGuide.claude, note: t.keyGuide.claudeCost, url: 'https://platform.claude.com/settings/keys' },
     serp: { title: t.keyGuide.serpTitle, steps: t.keyGuide.serp, note: t.settings.serpQuota, url: 'https://serpapi.com/users/sign_up' },
     jooble: { title: t.keyGuide.joobleTitle, steps: t.keyGuide.jooble, note: '', url: 'https://jooble.org/api/about' },
   };
@@ -110,7 +110,7 @@ export default function Settings() {
             >
               {t.settings.test}
             </Button>
-            <Button variant="ghost" icon={<ExternalLink className="size-4" />} onClick={() => Browser.open({ url: 'https://console.anthropic.com/settings/keys' })}>
+            <Button variant="ghost" icon={<ExternalLink className="size-4" />} onClick={() => Browser.open({ url: 'https://platform.claude.com/settings/keys' })}>
               Console
             </Button>
           </div>

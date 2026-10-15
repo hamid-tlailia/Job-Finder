@@ -1,0 +1,41 @@
+import { BackgroundRunner } from '@capacitor/background-runner';
+import type { Job } from '../core/types';
+import { dedupeKey } from '../core/match';
+import { useStore } from '../store/useStore';
+import { isNative } from './http';
+
+const LABEL = 'qa.jobfinder.app.check';
+
+/** Copies what the background check needs (profile, keys, already-known jobs) into the runner's storage. */
+export async function syncBackground(): Promise<void> {
+  if (!isNative) return;
+  const { profile, settings, jobs } = useStore.getState();
+  const known = Object.values(jobs).flatMap((j) => [j.id, dedupeKey(j)]);
+  try {
+    await BackgroundRunner.dispatchEvent({
+      label: LABEL,
+      event: 'sync',
+      details: {
+        profile: { ...profile, cvText: '' },
+        keys: { jooble: settings.joobleKey, serpapi: settings.serpapiKey },
+        sources: settings.sources,
+        uiLang: settings.uiLang,
+        notifications: settings.notifications,
+        known: known.slice(-1500),
+      },
+    });
+  } catch {
+    /* runner unavailable (e.g. first launch) */
+  }
+}
+
+/** Pulls jobs the background check found while the app was closed. */
+export async function drainBackground(): Promise<Job[]> {
+  if (!isNative) return [];
+  try {
+    const r = (await BackgroundRunner.dispatchEvent({ label: LABEL, event: 'drain', details: {} })) as { jobs?: Job[] } | undefined;
+    return r?.jobs ?? [];
+  } catch {
+    return [];
+  }
+}

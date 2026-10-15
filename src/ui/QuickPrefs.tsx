@@ -1,4 +1,3 @@
-import { RefreshCw } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useT } from '../i18n';
 import { Button, ChipGroup, Field, Sheet } from './kit';
@@ -6,7 +5,7 @@ import type { DistancePref, JobType, Workplace } from '../core/types';
 import { syncBackground } from '../lib/background';
 
 /** Bottom sheet with the preferences people tweak most, reachable from the home header. */
-export function QuickPrefs({ open, onClose, onSearch }: { open: boolean; onClose: () => void; onSearch: () => void }) {
+export function QuickPrefs({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useT();
   const prefs = useStore((s) => s.profile.prefs);
   const setPrefs = useStore((s) => s.setPrefs);
@@ -38,22 +37,9 @@ export function QuickPrefs({ open, onClose, onSearch }: { open: boolean; onClose
             <input type="range" min={5} max={80} step={5} value={prefs.maxKm} onChange={(e) => setPrefs({ maxKm: Number(e.target.value) })} className="h-8 w-full accent-[var(--accent)]" />
           </Field>
         )}
-        <div className="flex gap-2.5 pt-1">
-          <Button size="lg" variant="outline" className="flex-1" onClick={close}>
-            {t.common.done}
-          </Button>
-          <Button
-            size="lg"
-            className="flex-[1.4]"
-            icon={<RefreshCw className="size-5" />}
-            onClick={() => {
-              close();
-              onSearch();
-            }}
-          >
-            {t.home.saveSearch}
-          </Button>
-        </div>
+        <Button size="lg" className="w-full" onClick={close}>
+          {t.common.save}
+        </Button>
       </div>
     </Sheet>
   );

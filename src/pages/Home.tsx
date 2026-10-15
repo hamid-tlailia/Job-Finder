@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { ExternalLink, Radar, RefreshCw, Settings2, SlidersHorizontal, Sparkles, TriangleAlert } from 'lucide-react';
 import { QuickPrefs } from '../ui/QuickPrefs';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Browser } from '@capacitor/browser';
 import { scoreOf, useStore } from '../store/useStore';
 import { useT } from '../i18n';
@@ -14,6 +14,8 @@ import { buildQueries } from '../core/match';
 import { listable } from '../core/sources/util';
 
 type Filter = 'all' | 'ready' | 'new' | 'saved';
+
+const REFRESH_GAP_MS = 30 * 60000;
 
 export default function Home() {
   const { t, f, ago } = useT();
@@ -47,7 +49,16 @@ export default function Home() {
     return label ? `${label}: ${nice}` : nice;
   };
 
+  // A manual refresh is allowed at most every 30 minutes (boards rate-limit frequent searches).
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(id);
+  }, []);
+  const waitMin = lastRun ? Math.max(0, Math.ceil((REFRESH_GAP_MS - (now - new Date(lastRun).getTime())) / 60000)) : 0;
+
   const search = async () => {
+    if (waitMin > 0) return;
     try {
       const r = await runSearch();
       if (r.fresh === 0 && r.found > 0) toast(t.home.lastRun.replace('{time}', t.time.now));
@@ -110,8 +121,8 @@ export default function Home() {
                 </button>
               )}
             </div>
-            <Button size="sm" loading={run.running} onClick={search} icon={!run.running ? <RefreshCw className="size-4" /> : undefined}>
-              {run.running ? '' : t.home.run}
+            <Button size="sm" loading={run.running} disabled={waitMin > 0} onClick={search} icon={!run.running && waitMin === 0 ? <RefreshCw className="size-4" /> : undefined}>
+              {run.running ? '' : waitMin > 0 ? f(t.home.refreshIn, { n: waitMin }) : t.home.run}
             </Button>
           </div>
           <AnimatePresence>
@@ -159,8 +170,8 @@ export default function Home() {
             title={t.home.empty}
             body={t.home.emptyBody}
             action={
-              <Button onClick={search} loading={run.running} icon={<RefreshCw className="size-4" />}>
-                {t.home.run}
+              <Button onClick={search} loading={run.running} disabled={waitMin > 0} icon={waitMin === 0 ? <RefreshCw className="size-4" /> : undefined}>
+                {waitMin > 0 ? f(t.home.refreshIn, { n: waitMin }) : t.home.run}
               </Button>
             }
           />
@@ -185,7 +196,7 @@ export default function Home() {
         </div>
       </div>
 
-      <QuickPrefs open={prefsOpen} onClose={() => setPrefsOpen(false)} onSearch={search} />
+      <QuickPrefs open={prefsOpen} onClose={() => setPrefsOpen(false)} />
     </div>
   );
 }

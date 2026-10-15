@@ -72,8 +72,8 @@ function TabBar() {
               }}
               className={`flex flex-1 flex-col items-center gap-1 py-0.5 text-[11px] font-semibold transition-colors ${active ? 'text-accent' : 'text-muted'}`}
             >
-              <span className="relative grid h-7 w-14 place-items-center">
-                {active && <motion.span layoutId="tab-pill" transition={spring} className="absolute inset-0 rounded-full" style={{ background: 'var(--pill)' }} />}
+              <span className="relative grid h-8 w-12 place-items-center">
+                {active && <motion.span layoutId="tab-pill" transition={spring} className="absolute inset-0 rounded-[11px]" style={{ background: 'var(--pill)' }} />}
                 <Icon className="relative size-5" strokeWidth={active ? 2.4 : 1.9} />
                 {id === 'review' && readyCount > 0 && (
                   <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-1 end-2 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-accent px-1 text-[10px] text-white ring-2 ring-[var(--surface)]">
@@ -94,7 +94,8 @@ function Main() {
   const { tab, stack, dir } = useNav();
   const top = stack[stack.length - 1];
   const rtl = useStore((s) => s.settings.uiLang === 'ar');
-  const sign = rtl ? -1 : 1;
+  // Screens enter from the reading-start edge and leave the same way: right in Arabic, left in English.
+  const sign = rtl ? 1 : -1;
   const TabPage = { home: Home, review: Review, tracker: Tracker, profile: ProfilePage }[tab];
   return (
     <>

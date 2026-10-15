@@ -59,7 +59,7 @@ function TabBar() {
   const { tab, setTab } = useNav();
   const readyCount = useStore((s) => Object.values(s.matches).filter((m) => m.status === 'ready' && !m.seen).length);
   return (
-    <nav className="pb-safe glass fixed inset-x-0 bottom-0 z-30 border-t border-line">
+    <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.35)] backdrop-blur-xl">
       <div className="mx-auto flex max-w-xl px-2 pt-1.5">
         {TABS.map(({ id, icon: Icon }) => {
           const active = tab === id;

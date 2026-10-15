@@ -89,3 +89,21 @@ export async function settle<T>(items: T[], limit: number, fn: (t: T) => Promise
   });
   await Promise.all(workers);
 }
+
+/**
+ * Runs one search per query and keeps whatever succeeded; a source only fails when every
+ * query failed (e.g. LinkedIn rate-limits the second query after the first one worked).
+ */
+export async function eachQuery(queries: string[], fn: (q: string) => Promise<Job[]>): Promise<Job[]> {
+  const out: Job[] = [];
+  let lastError: unknown;
+  for (const q of queries) {
+    try {
+      out.push(...(await fn(q)));
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  if (!out.length && lastError) throw lastError;
+  return out;
+}

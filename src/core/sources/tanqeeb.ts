@@ -1,12 +1,18 @@
 import type { Job, JobSource } from '../types';
-import { attr } from '../html';
-import { enrich, normalizeType, normalizeWorkplace, nowIso, parseJsonLdJob } from './util';
+import { attr, decodeEntities, htmlToText } from '../html';
+import { eachQuery, enrich, normalizeType, normalizeWorkplace, nowIso, parseJsonLdJob } from './util';
 
 const BASE = 'https://qatar.tanqeeb.com';
 
 function parse(html: string): Job[] {
-  const cards = html.match(/<[a-z]+\b[^>]+data-drawer-trigger="job-card"[\s\S]*?data-share-copy="[^"]*">/g) ?? [];
-  return cards.flatMap((c) => {
+  const re = /<[a-z]+\b[^>]+data-drawer-trigger="job-card"[\s\S]*?data-share-copy="[^"]*">/g;
+  const starts = [...html.matchAll(re)];
+  return starts.flatMap((m, i) => {
+    const c = m[0];
+    // The card body carries the full description, HTML-escaped, in a hidden element.
+    const segment = html.slice(m.index ?? 0, starts[i + 1]?.index ?? html.length);
+    const escaped = /job-card-description-source[^>]*>([\s\S]*?)<\/div>/.exec(segment)?.[1];
+    const fullDesc = escaped ? htmlToText(decodeEntities(escaped)) : '';
     const id = attr(c, 'data-job-id');
     const title = attr(c, 'data-job-name');
     if (!id || !title || attr(c, 'data-job-closed') === '1') return [];
@@ -24,7 +30,7 @@ function parse(html: string): Job[] {
       location: attr(c, 'data-job-location') ?? 'Qatar',
       url: rel.startsWith('http') ? rel : BASE + rel,
       applyUrl: BASE + (attr(c, 'data-job-apply-url') ?? rel),
-      description: [attr(c, 'data-job-categories'), attr(c, 'data-job-industry'), attr(c, 'data-job-education'), attr(c, 'data-job-local-only'), attr(c, 'data-job-gender') && `Gender: ${attr(c, 'data-job-gender')}`].filter(Boolean).join(' · '),
+      description: fullDesc || [attr(c, 'data-job-categories'), attr(c, 'data-job-industry'), attr(c, 'data-job-education'), attr(c, 'data-job-local-only'), attr(c, 'data-job-gender') && `Gender: ${attr(c, 'data-job-gender')}`].filter(Boolean).join(' · '),
       postedAt: parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate.toISOString() : undefined,
       employmentType: normalizeType(attr(c, 'data-job-type')),
       workplace: normalizeWorkplace(attr(c, 'data-job-workplace')),
@@ -32,10 +38,10 @@ function parse(html: string): Job[] {
       contactEmail: attr(c, 'data-job-contact-email') || undefined,
       contactPhone: attr(c, 'data-job-contact-phone') || undefined,
       experience: attr(c, 'data-job-experience') || undefined,
-      needsDetail: true,
+      needsDetail: !fullDesc,
       fetchedAt: nowIso(),
     };
-    return [job];
+    return [fullDesc ? enrich(job) : job];
   });
 }
 
@@ -43,12 +49,16 @@ export const tanqeeb: JobSource = {
   id: 'tanqeeb',
   label: 'Tanqeeb',
   async search(ctx) {
-    const out: Job[] = [];
-    for (const q of ctx.queries) {
-      const html = await ctx.fetchText(`${BASE}/jobs/search?keywords=${encodeURIComponent(q)}`);
-      out.push(...parse(html));
-    }
-    return out;
+    return eachQuery(ctx.queries, async (q) => {
+      const k = encodeURIComponent(q);
+      const first = parse(await ctx.fetchText(`${BASE}/jobs/search?keywords=${k}`));
+      if (first.length < 15) return first;
+      try {
+        return [...first, ...parse(await ctx.fetchText(`${BASE}/jobs/search/page/2?keywords=${k}`))];
+      } catch {
+        return first;
+      }
+    });
   },
   async detail(job, ctx) {
     const html = await ctx.fetchText(job.url);

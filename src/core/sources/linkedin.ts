@@ -1,6 +1,6 @@
 import type { Job, JobSource } from '../types';
 import { attr, between, clean, htmlToText } from '../html';
-import { enrich, normalizeType, nowIso } from './util';
+import { eachQuery, enrich, normalizeType, nowIso } from './util';
 
 function parseCards(html: string): Job[] {
   const parts = html.split(/<li[\s>]/).slice(1);
@@ -37,17 +37,11 @@ export const linkedin: JobSource = {
   id: 'linkedin',
   label: 'LinkedIn',
   async search(ctx) {
-    const out: Job[] = [];
-    for (const q of ctx.queries) {
-      for (const start of [0, 25]) {
-        const url = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${encodeURIComponent(q)}&location=Qatar&f_TPR=r1209600&start=${start}`;
-        const html = await ctx.fetchText(url);
-        const cards = parseCards(html);
-        out.push(...cards);
-        if (cards.length < 10) break;
-      }
-    }
-    return out;
+    // One page (25 newest of the past two weeks) per query keeps LinkedIn from rate-limiting us.
+    return eachQuery(ctx.queries, async (q) => {
+      const url = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${encodeURIComponent(q)}&location=Qatar&f_TPR=r1209600&sortBy=DD&start=0`;
+      return parseCards(await ctx.fetchText(url));
+    });
   },
   async detail(job, ctx) {
     const id = job.id.split(':')[1];

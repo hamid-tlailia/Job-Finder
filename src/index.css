@@ -97,7 +97,9 @@ body {
 }
 
 .glass {
-  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  /* Solid fallback for WebViews without color-mix(); the next line overrides it where supported. */
+  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
   backdrop-filter: blur(18px) saturate(1.4);
   -webkit-backdrop-filter: blur(18px) saturate(1.4);
 }

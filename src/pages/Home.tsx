@@ -35,6 +35,13 @@ export default function Home() {
   const query = buildQueries(profile)[0] ?? '';
   const pct = run.total ? Math.round((run.done / run.total) * 100) : 0;
 
+  const friendlyError = (e: string) => {
+    const i = e.indexOf(': ');
+    const [label, msg] = i > 0 ? [e.slice(0, i), e.slice(i + 2)] : ['', e];
+    const nice = /HTTP 429/.test(msg) ? t.home.errRate : /time ?out|timed out/i.test(msg) ? t.home.errTimeout : /HTTP 40[13]/.test(msg) ? t.home.errBlocked : /network|failed to fetch|unable to resolve|connect/i.test(msg) ? t.home.errNet : msg;
+    return label ? `${label}: ${nice}` : nice;
+  };
+
   const search = async () => {
     try {
       const r = await runSearch();
@@ -109,8 +116,8 @@ export default function Home() {
             {showErrors && (
               <motion.ul initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden border-t border-line px-4 text-xs text-muted">
                 {run.errors.map((e) => (
-                  <li key={e} className="py-1.5" dir="ltr">
-                    {e}
+                  <li key={e} className="py-1.5">
+                    {friendlyError(e)}
                   </li>
                 ))}
               </motion.ul>

@@ -1,6 +1,6 @@
 import type { Job, JobSource } from '../types';
 import { clean, htmlToText } from '../html';
-import { enrich, normalizeType, normalizeWorkplace, nowIso } from './util';
+import { eachQuery, enrich, normalizeType, normalizeWorkplace, nowIso } from './util';
 
 interface WorkableJob {
   id: string;
@@ -22,8 +22,8 @@ export const workable: JobSource = {
   id: 'workable',
   label: 'Workable',
   async search(ctx) {
-    const out: Job[] = [];
-    for (const q of ctx.queries) {
+    return eachQuery(ctx.queries, async (q) => {
+      const out: Job[] = [];
       const txt = await ctx.fetchText(`https://jobs.workable.com/api/v1/jobs?location=Qatar&query=${encodeURIComponent(q)}`);
       const data = JSON.parse(txt) as { jobs?: WorkableJob[] };
       for (const j of data.jobs ?? []) {
@@ -49,7 +49,7 @@ export const workable: JobSource = {
           }),
         );
       }
-    }
-    return out;
+      return out;
+    });
   },
 };

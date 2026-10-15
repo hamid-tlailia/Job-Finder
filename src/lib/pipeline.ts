@@ -70,39 +70,9 @@ export async function prepare(jobId: string): Promise<void> {
   }
 }
 
-/** Fetches every enabled source, scores new jobs and auto-prepares the best ones. */
-export async function runSearch(): Promise<{ found: number; fresh: number; ready: number }> {
-  const store = useStore.getState();
-  if (store.run.running) return { found: 0, fresh: 0, ready: 0 };
-  const { settings, profile } = store;
-  const c = ctx();
-  const remoteOk = profile.prefs.workplaces.includes('remote');
-  // SerpApi's free plan is 250 searches a month, so Google Jobs runs at most every 6 hours.
-  const googleDue = !settings.lastGoogleRun || Date.now() - new Date(settings.lastGoogleRun).getTime() > 6 * 3600e3;
-  const sources = SOURCES.filter(
-    (s) =>
-      settings.sources[s.id] !== false &&
-      (!s.remoteOnly || remoteOk) &&
-      (!s.needsKey || (s.needsKey === 'jooble' ? settings.joobleKey : settings.serpapiKey)) &&
-      (s.id !== 'google' || googleDue),
-  );
-  if (sources.some((s) => s.id === 'google')) store.setSettings({ lastGoogleRun: new Date().toISOString() });
-  store.setRun({ running: true, step: 'fetch', done: 0, total: sources.length, errors: [] });
-
-  const all: Job[] = [];
-  const errors: string[] = [];
-  await settle(sources, 4, async (s) => {
-    try {
-      all.push(...(await s.search(c)));
-    } catch (e) {
-      errors.push(`${s.label}: ${e instanceof Error ? e.message : e}`);
-    } finally {
-      const r = useStore.getState().run;
-      useStore.getState().setRun({ done: r.done + 1 });
-    }
-  });
-
-  all.push(...(await drainBackground()));
+/** Filters, de-duplicates, scores and (for strong matches) prepares a batch of fetched jobs. */
+async function processJobs(all: Job[], c: SourceContext, errors: string[]): Promise<{ fresh: number; ready: number }> {
+  const { settings, profile } = useStore.getState();
   const fresh: Job[] = [];
   const st = useStore.getState();
   const seenNow = new Set<string>(); // the same post often arrives from two sources in one run
@@ -115,7 +85,7 @@ export async function runSearch(): Promise<{ found: number; fresh: number; ready
     fresh.push(j);
   }
 
-  store.setRun({ step: 'score', done: 0, total: fresh.length });
+  useStore.getState().setRun({ step: 'score', done: 0, total: fresh.length });
   const scored = fresh
     .map((j) => {
       const b = bestTrack(j, profile);
@@ -131,7 +101,7 @@ export async function runSearch(): Promise<{ found: number; fresh: number; ready
   // Deep analysis on the strongest candidates only, to keep AI cost and time bounded.
   const threshold = Math.max(35, profile.prefs.minScore - 25);
   const candidates = scored.filter((x) => x.ls.score >= threshold).slice(0, settings.apiKey ? settings.maxAiPerRun : 15);
-  store.setRun({ step: 'analyze', done: 0, total: candidates.length });
+  useStore.getState().setRun({ step: 'analyze', done: 0, total: candidates.length });
   let ready = 0;
   if (settings.autoPrepare) {
     await settle(candidates, settings.apiKey ? 3 : 4, async ({ j }) => {
@@ -168,10 +138,68 @@ export async function runSearch(): Promise<{ found: number; fresh: number; ready
     });
   }
 
+  return { fresh: fresh.length, ready };
+}
+
+/**
+ * Imports the jobs the background check found while the app was closed (it only notifies) and
+ * prepares the strong ones right away, so they are waiting in Review when the user opens the app.
+ */
+export async function ingestBackground(): Promise<number> {
+  if (useStore.getState().run.running) return 0;
+  const pending = await drainBackground();
+  if (!pending.length) return 0;
+  const errors: string[] = [];
+  useStore.getState().setRun({ running: true, step: 'score', done: 0, total: pending.length, errors: [] });
+  try {
+    const { ready } = await processJobs(pending, ctx(), errors);
+    useStore.getState().prune();
+    return ready;
+  } finally {
+    useStore.getState().setRun({ running: false, step: '', errors });
+    void syncBackground();
+  }
+}
+
+/** Fetches every enabled source, scores new jobs and auto-prepares the best ones. */
+export async function runSearch(): Promise<{ found: number; fresh: number; ready: number }> {
+  const store = useStore.getState();
+  if (store.run.running) return { found: 0, fresh: 0, ready: 0 };
+  const { settings, profile } = store;
+  const c = ctx();
+  const remoteOk = profile.prefs.workplaces.includes('remote');
+  // SerpApi's free plan is 250 searches a month, so Google Jobs runs at most every 6 hours.
+  const googleDue = !settings.lastGoogleRun || Date.now() - new Date(settings.lastGoogleRun).getTime() > 6 * 3600e3;
+  const sources = SOURCES.filter(
+    (s) =>
+      settings.sources[s.id] !== false &&
+      (!s.remoteOnly || remoteOk) &&
+      (!s.needsKey || (s.needsKey === 'jooble' ? settings.joobleKey : settings.serpapiKey)) &&
+      (s.id !== 'google' || googleDue),
+  );
+  if (sources.some((s) => s.id === 'google')) store.setSettings({ lastGoogleRun: new Date().toISOString() });
+  store.setRun({ running: true, step: 'fetch', done: 0, total: sources.length, errors: [] });
+
+  const all: Job[] = [];
+  const errors: string[] = [];
+  await settle(sources, 4, async (s) => {
+    try {
+      all.push(...(await s.search(c)));
+    } catch (e) {
+      errors.push(`${s.label}: ${e instanceof Error ? e.message : e}`);
+    } finally {
+      const r = useStore.getState().run;
+      useStore.getState().setRun({ done: r.done + 1 });
+    }
+  });
+
+  all.push(...(await drainBackground()));
+  const { fresh, ready } = await processJobs(all, c, errors);
+
   useStore.getState().prune();
   useStore.getState().setLastRun(new Date().toISOString());
   useStore.getState().setRun({ running: false, step: '', errors });
   if (ready > 0 && settings.notifications) await notifyReady(ready);
   void syncBackground();
-  return { found: all.length, fresh: fresh.length, ready };
+  return { found: all.length, fresh, ready };
 }

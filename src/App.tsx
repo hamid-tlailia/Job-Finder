@@ -10,7 +10,8 @@ import { Toaster, spring } from './ui/kit';
 import { haptic } from './ui/haptics';
 import { useT } from './i18n';
 import { isNative } from './lib/http';
-import { runSearch } from './lib/pipeline';
+import { ingestBackground, runSearch } from './lib/pipeline';
+import { BackgroundRunner } from '@capacitor/background-runner';
 import { onNotificationTap } from './lib/notify';
 import { syncBackground } from './lib/background';
 import Welcome from './pages/Welcome';
@@ -127,6 +128,16 @@ function Main() {
   );
 }
 
+/** Imports jobs found by the background check and shows Review when applications were prepared. */
+async function openPending(): Promise<void> {
+  try {
+    const ready = await ingestBackground();
+    if (ready > 0) useNav.getState().setTab('review');
+  } catch {
+    /* next update retries */
+  }
+}
+
 export default function App() {
   useTheme();
   const onboarded = useStore((s) => s.onboarded);
@@ -144,11 +155,19 @@ export default function App() {
     });
     const resume = CapApp.addListener('resume', () => {
       const { onboarded, lastRun } = useStore.getState();
-      if (onboarded && (!lastRun || Date.now() - new Date(lastRun).getTime() > 30 * 60000)) void runSearch().catch(() => undefined);
+      if (!onboarded) return;
+      if (!lastRun || Date.now() - new Date(lastRun).getTime() > 30 * 60000) void runSearch().catch(() => undefined);
+      else void openPending();
+    });
+    // Tap on a background-check notification while the app is alive.
+    const tapped = BackgroundRunner.addListener('backgroundRunnerNotificationReceived', () => {
+      useNav.getState().setTab('review');
+      void openPending();
     });
     return () => {
       void back.then((h) => h.remove());
       void resume.then((h) => h.remove());
+      void tapped.then((h) => h.remove());
     };
   }, []);
 
@@ -158,6 +177,7 @@ export default function App() {
     void syncBackground();
     const { lastRun } = useStore.getState();
     if (!lastRun || Date.now() - new Date(lastRun).getTime() > 30 * 60000) void runSearch().catch(() => undefined);
+    else void openPending();
   }, [onboarded]);
 
   return (

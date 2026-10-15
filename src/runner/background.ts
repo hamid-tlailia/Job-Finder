@@ -84,6 +84,8 @@ addEventListener('checkJobs', async (resolve) => {
             title: ar ? `🎯 ${fresh.length} وظائف جديدة تناسبك` : `🎯 ${fresh.length} new jobs match you`,
             body: ar ? `${fresh[0].title} — ${fresh[0].company}. افتح التطبيق لتجهيز السيرة وخطاب التقديم.` : `${fresh[0].title} — ${fresh[0].company}. Open the app to prepare your CV and cover letter.`,
             smallIcon: 'ic_stat_notify', largeIcon: 'ic_notify_large',
+            actionTypeId: 'open_review',
+            autoCancel: true,
           },
         ]);
       }

@@ -186,9 +186,9 @@ export function TagInput({ value, onChange, placeholder, suggestions = [] }: { v
       <div className={`flex min-h-12 flex-wrap items-center gap-1.5 p-2 ${inputCls}`}>
         <AnimatePresence initial={false}>
           {value.map((v) => (
-            <motion.span key={v} layout initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.6, opacity: 0 }} className="inline-flex h-8 items-center gap-1 rounded-full bg-accent-soft ps-3 pe-1.5 text-sm font-medium text-accent">
-              {v}
-              <button type="button" onClick={() => onChange(value.filter((x) => x !== v))} className="grid size-5 place-items-center rounded-full hover:bg-accent/15">
+            <motion.span key={v} layout initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.6, opacity: 0 }} className="inline-flex min-h-8 max-w-full items-center gap-1 rounded-2xl bg-accent-soft py-1 ps-3 pe-1.5 text-sm font-medium leading-snug text-accent">
+              <span dir="auto" className="min-w-0 break-words">{v}</span>
+              <button type="button" onClick={() => onChange(value.filter((x) => x !== v))} className="grid size-5 shrink-0 place-items-center rounded-full hover:bg-accent/15">
                 <X className="size-3.5" />
               </button>
             </motion.span>

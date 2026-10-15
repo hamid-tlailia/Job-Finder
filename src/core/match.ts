@@ -1,5 +1,6 @@
 import type { Analysis, CareerTrack, Job, Profile } from './types';
 import { QATAR_CITIES, cityOf, distanceKm } from './qatar';
+import { avoidedIndustry } from './industries';
 
 const STOP = new Set(['and', 'or', 'the', 'of', 'in', 'for', 'a', 'an', 'to', 'with', 'at', 'senior', 'junior', 'sr', 'jr', 'lead', 'head', 'i', 'ii', 'iii', '-', '&', 'في', 'و', 'من']);
 
@@ -73,6 +74,8 @@ export function localScore(job: Job, p: Profile): LocalScore {
 
   const banned = prefs.excludeKeywords.find((k) => k.trim() && text.includes(k.trim().toLowerCase()));
   if (banned) return { score: 0, reasons, gaps, blocked: `exclude:${banned}` };
+  const industry = avoidedIndustry(job, prefs.avoidIndustries);
+  if (industry) return { score: 0, reasons, gaps, blocked: `industry:${industry}` };
 
   let score = 20;
 

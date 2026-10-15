@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { ChevronLeft, ChevronRight, FileCheck2, FileX2, Layers, Plus, Wand2 } from 'lucide-react';
 import { useState } from 'react';
-import { useStore } from '../store/useStore';
+import { EMPTY, useStore } from '../store/useStore';
 import { useT } from '../i18n';
 import { useNav } from './nav';
 import { Button, toast } from './kit';
@@ -10,7 +10,7 @@ import { MAX_TRACKS } from '../core/types';
 
 export function TracksCard() {
   const { t, f, lang } = useT();
-  const tracks = useStore((s) => s.profile.tracks ?? []);
+  const tracks = useStore((s) => s.profile.tracks ?? EMPTY);
   const apiKey = useStore((s) => s.settings.apiKey);
   const push = useNav((s) => s.push);
   const [busy, setBusy] = useState(false);

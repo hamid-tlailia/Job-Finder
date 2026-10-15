@@ -39,6 +39,8 @@ export interface Preferences {
   availability: Availability;
   seniority: Seniority[];
   industries: string[];
+  /** Industries the person does not want to work in (ids from core/industries). */
+  avoidIndustries?: string[];
   excludeKeywords: string[];
   minScore: number;
   /** When true the AI decides which matches are strong enough to prepare; minScore is then ignored. */

@@ -4,6 +4,7 @@ import type { CvTemplate, Job, MatchRecord, MatchStatus, Profile } from '../core
 import type { ProfileSuggestion } from '../ai/claude';
 import { emptyProfile } from './defaults';
 import { inQatar, listable } from '../core/sources/util';
+import { avoidedIndustry } from '../core/industries';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -135,7 +136,7 @@ export const useStore = create<State>()(
           for (const m of ranked) {
             const j = s.jobs[m.jobId];
             if (!j) continue;
-            const ok = listable([j]).length > 0;
+            const ok = listable([j]).length > 0 && !avoidedIndustry(j, s.profile.prefs.avoidIndustries);
             if (keep.has(m.status) || (ok && m.status !== 'dismissed' && kept < 300)) {
               jobs[j.id] = j;
               matches[m.jobId] = m;
@@ -165,4 +166,7 @@ export const useStore = create<State>()(
 );
 
 /** Fit score shown to the user; a job outside Qatar always scores 0. */
+/** Stable empty array for selectors (a fresh [] each render makes zustand re-render forever). */
+export const EMPTY: never[] = [];
+
 export const scoreOf = (m: MatchRecord, job?: Job) => (job && !inQatar(job) ? 0 : m.analysis?.score ?? m.localScore);

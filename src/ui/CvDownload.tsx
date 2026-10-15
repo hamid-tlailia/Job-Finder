@@ -1,6 +1,6 @@
 import { Download } from 'lucide-react';
 import { useState } from 'react';
-import { useStore } from '../store/useStore';
+import { EMPTY, useStore } from '../store/useStore';
 import { useT } from '../i18n';
 import { Button, Chip, Field, Segmented, Sheet, toast } from './kit';
 import { downloadFieldCv } from '../lib/fieldCv';
@@ -9,7 +9,7 @@ import type { CvTemplate, Lang } from '../core/types';
 /** Sheet to download a ready (not job-specific) CV for the profile or one track. */
 export function CvDownloadSheet({ open, onClose, trackId }: { open: boolean; onClose: () => void; trackId?: string }) {
   const { t, lang: ui } = useT();
-  const tracks = useStore((s) => s.profile.tracks ?? []);
+  const tracks = useStore((s) => s.profile.tracks ?? EMPTY);
   const cvLang = useStore((s) => s.profile.prefs.cvLanguage);
   const tpl = useStore((s) => s.settings.cvTemplate);
   const [target, setTarget] = useState<string>(trackId ?? tracks[0]?.id ?? 'general');

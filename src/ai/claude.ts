@@ -84,7 +84,7 @@ export async function analyzeJob(cfg: AiConfig, p: Profile, job: Job, uiLang: La
     AnalysisSchema,
     'low',
     `UI language: ${uiLang === 'ar' ? 'Arabic' : 'English'}.
-Score how well this Qatar job fits the candidate. Weigh: role/title fit, hard skills, years and seniority, the candidate's job-type, workplace, distance and language preferences, salary floor (QAR), and visa status vs. any nationality/visa restriction in the posting. Penalise hard blockers heavily.
+Score how well this Qatar job fits the candidate. If the employer or workplace belongs to an industry listed in the candidate's prefs.avoidIndustries (e.g. "hotels" covers any hotel, resort or hospitality brand), the score must be at most 10 and that must be the first gap. Weigh: role/title fit, hard skills, years and seniority, the candidate's job-type, workplace, distance and language preferences, salary floor (QAR), and visa status vs. any nationality/visa restriction in the posting. Penalise hard blockers heavily.
 
 <candidate>
 ${profileBrief(p)}

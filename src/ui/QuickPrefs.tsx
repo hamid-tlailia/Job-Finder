@@ -4,6 +4,7 @@ import { Button, ChipGroup, Field, Sheet, Slider } from './kit';
 import type { DistancePref, JobType, Workplace } from '../core/types';
 import { syncBackground } from '../lib/background';
 import { MatchLevel } from './MatchLevel';
+import { AvoidIndustries } from './AvoidIndustries';
 
 /** Bottom sheet with the preferences people tweak most, reachable from the home header. */
 export function QuickPrefs({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -28,6 +29,7 @@ export function QuickPrefs({ open, onClose }: { open: boolean; onClose: () => vo
         <Field label={t.ob.type.workplace}>
           <ChipGroup<Workplace> options={opts(t.workplace)} value={prefs.workplaces} onChange={(v) => setPrefs({ workplaces: v })} />
         </Field>
+        <AvoidIndustries />
         <Field label={t.ob.location.distance}>
           <ChipGroup<DistancePref> multi={false} options={opts(t.distance)} value={[prefs.distance]} onChange={(v) => setPrefs({ distance: v[0] })} />
         </Field>

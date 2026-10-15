@@ -11,6 +11,7 @@ import { parseCv } from '../ai/claude';
 import { ensureNotifyPermission } from '../lib/notify';
 import { runSearch } from '../lib/pipeline';
 import { MatchLevel } from '../ui/MatchLevel';
+import { AvoidIndustries } from '../ui/AvoidIndustries';
 
 export const TITLE_SUGGESTIONS = {
   en: ['Accountant', 'Sales Executive', 'Software Engineer', 'Customer Service', 'Admin Assistant', 'HR Officer', 'Civil Engineer', 'Nurse', 'Teacher', 'Driver', 'Marketing Specialist', 'Receptionist'],
@@ -219,6 +220,7 @@ export default function Onboarding({ onBack }: { onBack: () => void }) {
           <Field label={t.ob.type.workplace}>
             <ChipGroup<Workplace> options={opts(t.workplace)} value={prefs.workplaces} onChange={(v) => setPrefs({ workplaces: v })} />
           </Field>
+          <AvoidIndustries />
         </StepShell>
       ),
     },

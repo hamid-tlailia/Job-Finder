@@ -12,6 +12,7 @@ import { runSearch } from '../lib/pipeline';
 import { EXPLORE_LINKS } from '../core/sources';
 import { buildQueries } from '../core/match';
 import { listable } from '../core/sources/util';
+import { avoidedIndustry } from '../core/industries';
 
 type Filter = 'all' | 'ready' | 'new' | 'saved';
 
@@ -29,11 +30,11 @@ export default function Home() {
 
   const list = useMemo(() => {
     const all = Object.values(matches).filter(
-      (m) => jobs[m.jobId] && m.status !== 'dismissed' && !['applied', 'interview', 'offer', 'rejected'].includes(m.status) && (m.status !== 'new' || listable([jobs[m.jobId]]).length > 0),
+      (m) => jobs[m.jobId] && m.status !== 'dismissed' && !['applied', 'interview', 'offer', 'rejected'].includes(m.status) && (m.status !== 'new' || (listable([jobs[m.jobId]]).length > 0 && !avoidedIndustry(jobs[m.jobId], profile.prefs.avoidIndustries))),
     );
     const filtered = all.filter((m) => (filter === 'all' || (filter === 'new' ? m.status === 'new' : m.status === filter)) && (trackFilter === 'all' || m.trackId === trackFilter));
     return filtered.sort((a, b) => scoreOf(b, jobs[b.jobId]) - scoreOf(a, jobs[a.jobId])).slice(0, 120);
-  }, [matches, jobs, filter, trackFilter]);
+  }, [matches, jobs, filter, trackFilter, profile.prefs.avoidIndustries]);
 
   const counts = useMemo(() => {
     const v = Object.values(matches);

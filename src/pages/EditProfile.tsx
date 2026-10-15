@@ -11,6 +11,7 @@ import { SKILL_SUGGESTIONS, TITLE_SUGGESTIONS } from './Onboarding';
 import { syncBackground } from '../lib/background';
 import { SuggestionList } from '../ui/Suggestions';
 import { MatchLevel } from '../ui/MatchLevel';
+import { AvoidIndustries } from '../ui/AvoidIndustries';
 
 type Section = 'basics' | 'goals' | 'prefs' | 'experience' | 'education' | 'languages';
 const SECTIONS: { id: Section; icon: typeof UserRound }[] = [
@@ -131,6 +132,7 @@ export default function EditProfile({ section }: { section?: string }) {
           <Field label={t.ob.type.workplace}>
             <ChipGroup<Workplace> options={opts(t.workplace)} value={prefs.workplaces} onChange={(v) => setPrefs({ workplaces: v })} />
           </Field>
+          <AvoidIndustries />
         </Group>
         <Group title={t.profile.languageSec}>
           <Field label={t.ob.language.jobLang}>

@@ -9,6 +9,7 @@ import { QATAR_CITIES } from '../core/qatar';
 import type { Availability, DistancePref, JobType, Lang, Seniority, VisaStatus, Workplace } from '../core/types';
 import { SKILL_SUGGESTIONS, TITLE_SUGGESTIONS } from './Onboarding';
 import { syncBackground } from '../lib/background';
+import { SuggestionList } from '../ui/Suggestions';
 
 type Section = 'basics' | 'goals' | 'prefs' | 'experience' | 'education' | 'languages';
 const SECTIONS: { id: Section; icon: typeof UserRound }[] = [
@@ -296,6 +297,7 @@ export default function EditProfile({ section }: { section?: string }) {
       <div className="overflow-x-hidden px-4 pb-40 pt-5">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div key={tab} initial={{ opacity: 0, x: 40 * dir * sx }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 * dir * sx }} transition={{ type: 'spring', stiffness: 320, damping: 32 }} className="mx-auto max-w-xl space-y-4">
+            {tab !== 'prefs' && <SuggestionList section={tab} compact />}
             {content[tab]}
           </motion.div>
         </AnimatePresence>

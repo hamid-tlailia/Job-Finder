@@ -4,6 +4,8 @@ import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.PowerManager;
+import android.provider.Settings;
 import androidx.core.content.FileProvider;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -94,5 +96,27 @@ public class ComposerPlugin extends Plugin {
         } catch (Exception e) {
             call.reject(e.getMessage(), e);
         }
+    }
+
+    /** Whether Android exempts the app from battery optimisation (needed for reliable background checks). */
+    @PluginMethod
+    public void batteryStatus(PluginCall call) {
+        PowerManager pm = (PowerManager) getContext().getSystemService(android.content.Context.POWER_SERVICE);
+        JSObject ret = new JSObject();
+        ret.put("ignoring", pm != null && pm.isIgnoringBatteryOptimizations(getContext().getPackageName()));
+        call.resolve(ret);
+    }
+
+    /** Shows the system dialog that lets the user exempt this app from battery optimisation. */
+    @PluginMethod
+    public void requestBatteryExemption(PluginCall call) {
+        try {
+            Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + getContext().getPackageName()));
+            getActivity().startActivity(intent);
+        } catch (Exception e) {
+            Intent fallback = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getContext().getPackageName()));
+            getActivity().startActivity(fallback);
+        }
+        call.resolve();
     }
 }

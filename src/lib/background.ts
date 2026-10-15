@@ -39,3 +39,10 @@ export async function drainBackground(): Promise<Job[]> {
     return [];
   }
 }
+
+/** Runs the same check the OS schedules hourly, right now (used to verify notifications work). */
+export async function runBackgroundCheckNow(): Promise<void> {
+  if (!isNative) return;
+  await syncBackground();
+  await BackgroundRunner.dispatchEvent({ label: LABEL, event: 'checkJobs', details: {} });
+}

@@ -68,6 +68,7 @@ export default function Onboarding({ onBack }: { onBack: () => void }) {
         languages: pick(r.languages, cur.languages),
       });
       setCvMsg(t.ob.cv.parsed);
+      useStore.getState().setSuggestions([], new Date().toISOString()); // just filled from this CV; nothing to compare yet
     } catch (e) {
       setCvMsg(e instanceof Error ? e.message : String(e));
     } finally {

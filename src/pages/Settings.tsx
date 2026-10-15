@@ -10,7 +10,12 @@ import type { CvTemplate } from '../core/types';
 import { SOURCES } from '../core/sources';
 import { MODELS, testKey } from '../ai/claude';
 import { ensureNotifyPermission } from '../lib/notify';
-import { syncBackground } from '../lib/background';
+import { runBackgroundCheckNow, syncBackground } from '../lib/background';
+import { testNotification } from '../lib/notify';
+import { Composer } from '../lib/composer';
+import { isNative } from '../lib/http';
+import { useEffect } from 'react';
+import { BatteryCharging, BellRing, Radar } from 'lucide-react';
 
 export default function Settings() {
   const { t, lang } = useT();
@@ -155,6 +160,9 @@ export default function Settings() {
           </div>
         </div>
 
+        <SectionTitle>{t.settings.bgTitle}</SectionTitle>
+        <BackgroundCard />
+
         <SectionTitle>{t.settings.data}</SectionTitle>
         <div className="card space-y-3 p-4">
           <p className="flex gap-2 text-[13px] leading-relaxed text-muted">
@@ -194,7 +202,7 @@ export default function Settings() {
           )}
         </Sheet>
         <p className="mt-6 text-center text-xs text-muted">
-          {t.appName} · {t.settings.version} 1.4.4
+          {t.appName} · {t.settings.version} 1.5.0
         </p>
       </div>
     </div>
@@ -218,6 +226,73 @@ function TemplateThumb({ kind }: { kind: 'auto' | CvTemplate }) {
           <div className="mt-0.5 h-0.5 w-11/12 bg-gray-200" />
         </div>
       ))}
+    </div>
+  );
+}
+
+/** Lets the user verify notifications and lift Android's battery restrictions on background checks. */
+function BackgroundCard() {
+  const { t } = useT();
+  const [battery, setBattery] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const refresh = () => {
+    if (isNative) void Composer.batteryStatus().then((r) => setBattery(r.ignoring)).catch(() => setBattery(null));
+  };
+  useEffect(() => {
+    refresh();
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, []);
+  return (
+    <div className="card space-y-3 p-4">
+      {isNative && battery !== null && (
+        <div className="flex items-center gap-3">
+          <BatteryCharging className={`size-5 shrink-0 ${battery ? 'text-ok' : 'text-warn'}`} />
+          <div className="min-w-0 flex-1">
+            <div className="text-[14.5px] font-semibold">{t.settings.bgBattery}</div>
+            <div className={`text-[12.5px] ${battery ? 'text-ok' : 'text-warn'}`}>{battery ? t.settings.bgBatteryOk : t.settings.bgBatteryOff}</div>
+          </div>
+          {!battery && (
+            <Button size="sm" onClick={() => Composer.requestBatteryExemption().catch(() => undefined)}>
+              {t.settings.bgAllow}
+            </Button>
+          )}
+        </div>
+      )}
+      <Button
+        variant="outline"
+        className="w-full"
+        icon={<BellRing className="size-4" />}
+        onClick={async () => toast((await testNotification()) ? t.settings.bgTestSent : t.settings.bgNoPerm)}
+      >
+        {t.settings.bgTest}
+      </Button>
+      {isNative && (
+        <Button
+          variant="outline"
+          className="w-full"
+          loading={busy}
+          icon={<Radar className="size-4" />}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await runBackgroundCheckNow();
+              toast(t.settings.bgRunDone);
+            } catch (e) {
+              toast(e instanceof Error ? e.message : String(e));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {t.settings.bgRun}
+        </Button>
+      )}
+      <p className="text-[12.5px] leading-relaxed text-muted">{t.settings.bgHelp}</p>
     </div>
   );
 }

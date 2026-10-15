@@ -32,3 +32,17 @@ export function onNotificationTap(cb: (route: string) => void): void {
   if (!isNative) return;
   void LocalNotifications.addListener('localNotificationActionPerformed', (e) => cb((e.notification.extra?.route as string) ?? '/inbox'));
 }
+
+export async function testNotification(): Promise<boolean> {
+  if (!(await ensureNotifyPermission())) return false;
+  const ar = useStore.getState().settings.uiLang === 'ar';
+  const title = ar ? '🔔 الإشعارات تعمل' : '🔔 Notifications work';
+  const body = ar ? 'ستصلك تنبيهات الوظائف الجديدة هنا حتى والتطبيق مغلق.' : 'New-job alerts will arrive here even when the app is closed.';
+  if (isNative) {
+    // Scheduled a few seconds ahead so it can be seen after leaving the app.
+    await LocalNotifications.schedule({ notifications: [{ id: 777, title, body, smallIcon: 'ic_stat_notify', schedule: { at: new Date(Date.now() + 5000), allowWhileIdle: true } }] });
+  } else {
+    new Notification(title, { body });
+  }
+  return true;
+}

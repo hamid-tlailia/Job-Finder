@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { CvTemplate, Job, MatchRecord, MatchStatus, Profile } from '../core/types';
+import type { ProfileSuggestion } from '../ai/claude';
 import { emptyProfile } from './defaults';
 import { inQatar, listable } from '../core/sources/util';
 
@@ -39,6 +40,13 @@ interface State {
   seenKeys: Record<string, string>;
   lastRun?: string;
   run: RunState;
+  /** AI comparison of the uploaded CV with the profile, waiting for the user to accept or dismiss. */
+  suggestions: ProfileSuggestion[];
+  reviewedAt?: string;
+  reviewing: boolean;
+  setSuggestions: (s: ProfileSuggestion[], reviewedAt?: string) => void;
+  dropSuggestion: (id: string) => void;
+  setReviewing: (v: boolean) => void;
   setProfile: (p: Partial<Profile>) => void;
   setPrefs: (p: Partial<Profile['prefs']>) => void;
   setSettings: (s: Partial<Settings>) => void;
@@ -82,6 +90,11 @@ export const useStore = create<State>()(
       matches: {},
       seenKeys: {},
       run: idleRun,
+      suggestions: [],
+      reviewing: false,
+      setSuggestions: (suggestions, reviewedAt) => set((s) => ({ suggestions, reviewedAt: reviewedAt ?? s.reviewedAt })),
+      dropSuggestion: (id) => set((s) => ({ suggestions: s.suggestions.filter((x) => x.id !== id) })),
+      setReviewing: (reviewing) => set({ reviewing }),
       setProfile: (p) => set((s) => ({ profile: { ...s.profile, ...p } })),
       setPrefs: (p) => set((s) => ({ profile: { ...s.profile, prefs: { ...s.profile.prefs, ...p } } })),
       setSettings: (x) => set((s) => ({ settings: { ...s.settings, ...x } })),
@@ -124,13 +137,13 @@ export const useStore = create<State>()(
           }
           return { jobs, matches };
         }),
-      reset: () => set({ onboarded: false, profile: emptyProfile(), jobs: {}, matches: {}, seenKeys: {}, lastRun: undefined }),
+      reset: () => set({ onboarded: false, profile: emptyProfile(), jobs: {}, matches: {}, seenKeys: {}, lastRun: undefined, suggestions: [], reviewedAt: undefined }),
     }),
     {
       name: 'job-finder',
       version: 1,
       storage: createJSONStorage(() => localStorage),
-      partialize: ({ run: _run, ...rest }) => rest,
+      partialize: ({ run: _run, reviewing: _reviewing, ...rest }) => rest,
       merge: (persisted, current) => {
         const p = persisted as Partial<State>;
         return {

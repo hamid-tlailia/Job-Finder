@@ -219,3 +219,44 @@ export async function parseCv(cfg: AiConfig, cvText: string): Promise<CvImport> 
 export async function testKey(cfg: AiConfig): Promise<void> {
   await client(cfg).models.retrieve(cfg.model);
 }
+
+const SuggestionSchema = z.object({
+  section: z.enum(['basics', 'goals', 'experience', 'education', 'languages']).describe('profile tab the suggestion belongs to'),
+  field: z.enum(['fullName', 'email', 'phone', 'nationality', 'linkedin', 'headline', 'summary', 'targetTitles', 'skills', 'yearsExperience', 'experience', 'education', 'certifications', 'languages']),
+  kind: z.enum(['missing', 'different', 'improve']).describe('missing: in the CV but not in the profile; different: both have it but they disagree; improve: the profile entry is much weaker than the CV'),
+  message: z.string().describe('one short sentence for the user in the UI language explaining the gap'),
+  text: z.string().nullable().describe('new value for single text fields (fullName, email, phone, nationality, linkedin, headline, summary)'),
+  items: z.array(z.string()).nullable().describe('items to ADD for list fields (targetTitles, skills, certifications) — only ones not already in the profile'),
+  years: z.number().nullable().describe('new value for yearsExperience'),
+  experience: ExperienceSchema.nullable().describe('the experience entry from the CV for field experience'),
+  education: z.object({ degree: z.string(), school: z.string(), year: z.string() }).nullable(),
+  language: z.object({ name: z.string(), level: z.string() }).nullable(),
+  replaceIndex: z.number().nullable().describe('for different/improve on experience, education or languages: index of the profile entry to replace; null to add a new entry'),
+});
+
+export type ProfileSuggestion = z.infer<typeof SuggestionSchema> & { id: string };
+
+const ReviewSchema = z.object({ suggestions: z.array(SuggestionSchema) });
+
+/** Compares the uploaded CV with the profile and proposes concrete, ready-to-apply fixes. */
+export async function reviewProfile(cfg: AiConfig, p: Profile, uiLang: Lang): Promise<ProfileSuggestion[]> {
+  const { cvText, prefs: _prefs, ...profile } = p;
+  const r = await structured(
+    cfg,
+    ReviewSchema,
+    'low',
+    `UI language: ${uiLang === 'ar' ? 'Arabic' : 'English'}.
+Compare the candidate's CV with their app profile. List every fact present in the CV that is missing from the profile, contradicts it, or is clearly richer in the CV (e.g. a job with achievements in the CV but only a title in the profile). Also suggest 2-4 target job titles and the key skills if the profile has few.
+Rules: take values only from the CV — never invent anything. Skip anything already equivalent in the profile (ignore formatting differences, e.g. phone spacing or +974 prefix). Put the value in the slot that matches the field and leave other slots null. Keep messages short. Return an empty list if the profile already reflects the CV.
+
+<cv>
+${cvText.slice(0, 30000)}
+</cv>
+
+<profile>
+${JSON.stringify(profile, null, 1)}
+</profile>`,
+    12000,
+  );
+  return r.suggestions.map((s, i) => ({ ...s, id: `${s.field}:${i}:${(s.text ?? s.items?.join(',') ?? s.experience?.company ?? s.education?.degree ?? s.language?.name ?? String(s.years ?? '')).slice(0, 40)}` }));
+}

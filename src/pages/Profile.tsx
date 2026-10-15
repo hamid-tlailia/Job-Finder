@@ -1,5 +1,8 @@
 import { motion } from 'motion/react';
-import { ChevronLeft, ChevronRight, GraduationCap, Languages, Mail, MapPin, Pencil, Phone, Settings2, SlidersHorizontal, Award, BriefcaseBusiness } from 'lucide-react';
+import { useEffect } from 'react';
+import { CvActions, SuggestionList } from '../ui/Suggestions';
+import { localGaps, runProfileReview } from '../lib/profileReview';
+import { CircleAlert, FileText, ChevronLeft, ChevronRight, GraduationCap, Languages, Mail, MapPin, Pencil, Phone, Settings2, SlidersHorizontal, Award, BriefcaseBusiness } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useT } from '../i18n';
 import { useNav } from '../ui/nav';
@@ -8,6 +11,13 @@ import { QATAR_CITIES } from '../core/qatar';
 export default function ProfilePage() {
   const { t, lang } = useT();
   const p = useStore((s) => s.profile);
+  const gaps = localGaps(p);
+
+  // First visit after a CV and an AI key are both available: compare them once automatically.
+  useEffect(() => {
+    const { settings, reviewedAt, reviewing, profile } = useStore.getState();
+    if (settings.apiKey && !reviewedAt && !reviewing && profile.cvText.trim().length > 80) void runProfileReview().catch(() => undefined);
+  }, []);
   const push = useNav((s) => s.push);
   const city = QATAR_CITIES.find((c) => c.id === p.city);
   const Chevron = lang === 'ar' ? ChevronLeft : ChevronRight;
@@ -60,6 +70,32 @@ export default function ProfilePage() {
         </div>
       </header>
       <div className="space-y-4 px-4 pt-2">
+        <div className="card space-y-3 p-4">
+          <h3 className="flex items-center gap-2 text-[14.5px] font-bold">
+            <FileText className="size-4 text-gold" />
+            {t.suggest.cvTitle}
+          </h3>
+          <CvActions />
+        </div>
+        <SuggestionList />
+        {gaps.length > 0 && (
+          <div className="card p-4">
+            <h3 className="mb-2 text-[14.5px] font-bold">{t.suggest.gapsTitle}</h3>
+            <ul className="divide-y divide-[var(--line)]">
+              {gaps.map((g) => (
+                <li key={g.key} className="flex items-center gap-3 py-2.5">
+                  <CircleAlert className="size-4 shrink-0 text-warn" />
+                  <span className="min-w-0 flex-1 text-[13.5px] leading-relaxed">{t.suggest.gaps[g.key]}</span>
+                  {g.key !== 'cv' && (
+                    <button onClick={() => push({ name: 'editProfile', section: g.section })} className="shrink-0 rounded-full bg-accent-soft px-3 py-1.5 text-xs font-bold text-accent">
+                      {t.suggest.fix}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div className="card p-4">
           <div className="mb-2 text-[13px] font-semibold text-muted">{t.ob.goals.titles}</div>
           <div className="flex flex-wrap gap-1.5">

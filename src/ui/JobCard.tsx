@@ -4,13 +4,14 @@ import type { Job, MatchRecord } from '../core/types';
 import { CompanyAvatar, ScoreRing } from './kit';
 import { useT } from '../i18n';
 import { useNav } from './nav';
-import { scoreOf } from '../store/useStore';
+import { scoreOf, useStore } from '../store/useStore';
 import { QATAR_CITIES } from '../core/qatar';
 
 export function JobCard({ job, match, index = 0 }: { job: Job; match: MatchRecord; index?: number }) {
   const { t, lang, ago } = useT();
   const push = useNav((s) => s.push);
   const score = scoreOf(match, job);
+  const track = useStore((s) => ((s.profile.tracks ?? []).length > 1 ? s.profile.tracks.find((x) => x.id === match.trackId) : undefined));
   const city = QATAR_CITIES.find((c) => c.id === job.city);
   const where = city ? (lang === 'ar' ? city.ar : city.en) : job.location;
   return (
@@ -46,7 +47,10 @@ export function JobCard({ job, match, index = 0 }: { job: Job; match: MatchRecor
         <ScoreRing score={score} size={52} />
       </div>
       <div className="mt-3.5 flex items-center justify-between gap-2">
-        <span className="truncate rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-muted">{job.sourceLabel}</span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          {track && <span className="shrink-0 rounded-full bg-gold-soft px-2.5 py-1 text-[11px] font-bold text-gold">{track.name}</span>}
+          <span className="truncate rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-muted">{job.sourceLabel}</span>
+        </span>
         {match.status === 'ready' && (
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gold-soft px-2.5 py-1 text-[11px] font-bold text-gold">
             <Send className="size-3" />

@@ -2,7 +2,7 @@
 import type { Job, Profile, SourceContext } from '../core/types';
 import { SOURCES } from '../core/sources';
 import { listable } from '../core/sources/util';
-import { buildQueries, dedupeKey, localScore } from '../core/match';
+import { bestTrack, buildQueries, dedupeKey } from '../core/match';
 import { BROWSER_UA } from '../core/allowlist';
 
 declare const CapacitorKV: { get(k: string): { value: string } | null | undefined; set(k: string, v: string): void };
@@ -50,7 +50,7 @@ addEventListener('checkJobs', async (resolve) => {
     const cfg = kvGet<Config | null>('config', null);
     if (!cfg || !cfg.profile.targetTitles.length) return resolve();
     const seen = new Set<string>([...cfg.known, ...kvGet<string[]>('seen', [])]);
-    const ctx: SourceContext = { queries: buildQueries(cfg.profile).slice(0, 2), profile: cfg.profile, keys: cfg.keys, fetchText };
+    const ctx: SourceContext = { queries: buildQueries(cfg.profile).slice(0, 3), profile: cfg.profile, keys: cfg.keys, fetchText };
     const remoteOk = cfg.profile.prefs.workplaces.includes('remote');
     const found: Job[] = [];
     for (const s of SOURCES) {
@@ -69,7 +69,7 @@ addEventListener('checkJobs', async (resolve) => {
       const key = dedupeKey(j);
       if (seen.has(key) || seen.has(j.id)) continue;
       seen.add(key);
-      const ls = localScore(j, cfg.profile);
+      const ls = bestTrack(j, cfg.profile).score;
       if (!ls.blocked && ls.score >= threshold) fresh.push(j);
     }
     CapacitorKV.set('seen', JSON.stringify([...seen].slice(-1500)));
@@ -83,7 +83,7 @@ addEventListener('checkJobs', async (resolve) => {
             id: 4242,
             title: ar ? `🎯 ${fresh.length} وظائف جديدة تناسبك` : `🎯 ${fresh.length} new jobs match you`,
             body: ar ? `${fresh[0].title} — ${fresh[0].company}. افتح التطبيق لتجهيز السيرة وخطاب التقديم.` : `${fresh[0].title} — ${fresh[0].company}. Open the app to prepare your CV and cover letter.`,
-            smallIcon: 'ic_stat_notify',
+            smallIcon: 'ic_stat_notify', largeIcon: 'ic_notify_large',
           },
         ]);
       }

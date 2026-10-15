@@ -19,7 +19,7 @@ export async function notifyReady(count: number): Promise<void> {
   const body = ar ? 'جهّزنا لك السيرة الذاتية وخطاب التقديم. راجعها واضغط إرسال.' : 'Your tailored CV and cover letter are ready. Review and tap send.';
   try {
     if (isNative) {
-      await LocalNotifications.schedule({ notifications: [{ id: Date.now() % 2147483647, title, body, extra: { route: '/inbox' }, smallIcon: 'ic_stat_notify' }] });
+      await LocalNotifications.schedule({ notifications: [{ id: Date.now() % 2147483647, title, body, extra: { route: '/inbox' }, smallIcon: 'ic_stat_notify', largeIcon: 'ic_notify_large' }] });
     } else if ('Notification' in window && Notification.permission === 'granted') {
       new Notification(title, { body, icon: '/icon-192.png' });
     }
@@ -40,7 +40,7 @@ export async function testNotification(): Promise<boolean> {
   const body = ar ? 'ستصلك تنبيهات الوظائف الجديدة هنا حتى والتطبيق مغلق.' : 'New-job alerts will arrive here even when the app is closed.';
   if (isNative) {
     // Scheduled a few seconds ahead so it can be seen after leaving the app.
-    await LocalNotifications.schedule({ notifications: [{ id: 777, title, body, smallIcon: 'ic_stat_notify', schedule: { at: new Date(Date.now() + 5000), allowWhileIdle: true } }] });
+    await LocalNotifications.schedule({ notifications: [{ id: 777, title, body, smallIcon: 'ic_stat_notify', largeIcon: 'ic_notify_large', schedule: { at: new Date(Date.now() + 5000), allowWhileIdle: true } }] });
   } else {
     new Notification(title, { body });
   }

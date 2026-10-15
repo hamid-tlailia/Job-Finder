@@ -43,6 +43,21 @@ export interface Preferences {
   minScore: number;
 }
 
+/** A field the person wants to work in, with its own titles, pitch, skills and CV. */
+export interface CareerTrack {
+  id: string;
+  name: string;
+  targetTitles: string[];
+  headline: string;
+  summary: string;
+  skills: string[];
+  /** Text of the CV the person uses for this field (optional). */
+  cvText: string;
+  cvName?: string;
+}
+
+export const MAX_TRACKS = 4;
+
 export interface Profile {
   fullName: string;
   email: string;
@@ -61,6 +76,8 @@ export interface Profile {
   certifications: string[];
   languages: SpokenLanguage[];
   cvText: string;
+  /** Career tracks; empty means a single-field profile. */
+  tracks: CareerTrack[];
   prefs: Preferences;
 }
 
@@ -143,6 +160,8 @@ export type MatchStatus = 'new' | 'preparing' | 'ready' | 'applied' | 'saved' | 
 
 export interface MatchRecord {
   jobId: string;
+  /** Career track this job was matched (and its application written) for. */
+  trackId?: string;
   localScore: number;
   analysis?: Analysis;
   pkg?: ApplicationPackage;

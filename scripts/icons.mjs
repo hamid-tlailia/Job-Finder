@@ -20,4 +20,6 @@ for (const [d, [w, h]] of Object.entries(splash)) {
 await sharp(`${root}/assets/icon.svg`).resize(512, 512).png().toFile(`${root}/public/icon-512.png`);
 await sharp(`${root}/assets/icon.svg`).resize(192, 192).png().toFile(`${root}/public/icon-192.png`);
 await sharp(`${root}/assets/icon.svg`).resize(180, 180).png().toFile(`${root}/public/apple-touch-icon.png`);
+mkdirSync(`${res}/drawable-nodpi`, { recursive: true });
+await sharp(`${root}/assets/icon.svg`).resize(256, 256).png().toFile(`${res}/drawable-nodpi/ic_notify_large.png`);
 console.log('ok');

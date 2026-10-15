@@ -18,6 +18,7 @@ export const emptyProfile = (): Profile => ({
   certifications: [],
   languages: [],
   cvText: '',
+  tracks: [],
   prefs: {
     country: 'QA',
     jobTypes: ['full_time'],

@@ -1,4 +1,4 @@
-import type { Analysis, Job, Profile } from './types';
+import type { Analysis, CareerTrack, Job, Profile } from './types';
 import { QATAR_CITIES, cityOf, distanceKm } from './qatar';
 
 const STOP = new Set(['and', 'or', 'the', 'of', 'in', 'for', 'a', 'an', 'to', 'with', 'at', 'senior', 'junior', 'sr', 'jr', 'lead', 'head', 'i', 'ii', 'iii', '-', '&', 'في', 'و', 'من']);
@@ -11,10 +11,43 @@ export function dedupeKey(job: Job): string {
   return `${tokens(job.title).sort().join(' ')}|${tokens(job.company).join(' ')}`;
 }
 
-export function buildQueries(profile: Profile): string[] {
-  const titles = profile.targetTitles.map((t) => t.trim()).filter(Boolean);
-  const q = titles.length ? titles : profile.headline ? [profile.headline] : profile.skills.slice(0, 2);
-  return [...new Set(q.map((s) => s.toLowerCase()))].slice(0, 4);
+/** The profile as seen through one career track: its titles, pitch, skills and CV replace the general ones. */
+export function trackProfile(p: Profile, track?: CareerTrack): Profile {
+  if (!track) return p;
+  return {
+    ...p,
+    headline: track.headline || p.headline,
+    summary: track.summary || p.summary,
+    targetTitles: track.targetTitles.length ? track.targetTitles : p.targetTitles,
+    skills: track.skills.length ? track.skills : p.skills,
+    cvText: track.cvText || p.cvText,
+  };
+}
+
+/** Search keywords: with tracks, titles are taken round-robin so every track is searched. */
+export function buildQueries(profile: Profile, max = 6): string[] {
+  const tracks = (profile.tracks ?? []).filter((t) => t.targetTitles.length);
+  let q: string[];
+  if (tracks.length) {
+    q = [];
+    for (let i = 0; q.length < max * 2 && tracks.some((t) => t.targetTitles[i]); i++) for (const t of tracks) if (t.targetTitles[i]) q.push(t.targetTitles[i]);
+  } else {
+    const titles = profile.targetTitles.map((t) => t.trim()).filter(Boolean);
+    q = titles.length ? titles : profile.headline ? [profile.headline] : profile.skills.slice(0, 2);
+  }
+  return [...new Set(q.map((s) => s.trim().toLowerCase()).filter(Boolean))].slice(0, tracks.length ? max : 4);
+}
+
+/** Scores the job against every track and returns the best one (or the plain profile when there are no tracks). */
+export function bestTrack(job: Job, p: Profile): { trackId?: string; score: LocalScore } {
+  const tracks = p.tracks ?? [];
+  if (!tracks.length) return { score: localScore(job, p) };
+  let best: { trackId?: string; score: LocalScore } | undefined;
+  for (const t of tracks) {
+    const s = localScore(job, trackProfile(p, t));
+    if (!best || (s.blocked ? -1 : s.score) > (best.score.blocked ? -1 : best.score.score)) best = { trackId: t.id, score: s };
+  }
+  return best!;
 }
 
 function requiredYears(text: string): number | undefined {

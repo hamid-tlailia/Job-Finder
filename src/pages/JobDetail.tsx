@@ -46,6 +46,7 @@ export default function JobDetail({ id }: { id: string }) {
   const { t, lang, ago, f } = useT();
   const pop = useNav((s) => s.pop);
   const { jobs, matches, profile, upsertMatch, setStatus } = useStore();
+  const tracks = profile.tracks ?? [];
   const job = jobs[id];
   const m = matches[id];
   const [tab, setTab] = useState<'cv' | 'letter' | 'message' | 'qa'>('cv');
@@ -222,6 +223,29 @@ export default function JobDetail({ id }: { id: string }) {
             <button onClick={() => setExpanded((e) => !e)} className="mt-2 text-sm font-semibold text-accent">
               {expanded ? t.job.showLess : t.job.showMore}
             </button>
+          </div>
+        )}
+
+        {tracks.length > 1 && (
+          <div className="card p-4">
+            <div className="mb-2.5 text-[13px] font-semibold text-muted">{t.tracks.jobTrack}</div>
+            <div className="flex flex-wrap gap-2">
+              {tracks.map((tr) => (
+                <button
+                  key={tr.id}
+                  disabled={busy}
+                  onClick={async () => {
+                    if (tr.id === m.trackId) return;
+                    upsertMatch(id, { trackId: tr.id, analysis: undefined });
+                    toast(t.tracks.switching);
+                    await doPrepare();
+                  }}
+                  className={`h-9 rounded-xl px-3.5 text-[13px] font-bold transition-colors ${tr.id === m.trackId ? 'bg-accent text-white' : 'border border-line bg-surface text-muted'}`}
+                >
+                  {tr.name || t.tracks.untitled}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 

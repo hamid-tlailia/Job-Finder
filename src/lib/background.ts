@@ -16,7 +16,7 @@ export async function syncBackground(): Promise<void> {
       label: LABEL,
       event: 'sync',
       details: {
-        profile: { ...profile, cvText: '' },
+        profile: { ...profile, cvText: '', tracks: (profile.tracks ?? []).map((t) => ({ ...t, cvText: '' })) },
         keys: { jooble: settings.joobleKey, serpapi: settings.serpapiKey },
         sources: settings.sources,
         uiLang: settings.uiLang,

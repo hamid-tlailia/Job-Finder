@@ -24,14 +24,16 @@ export default function Home() {
   const [filter, setFilter] = useState<Filter>('all');
   const [showErrors, setShowErrors] = useState(false);
   const [prefsOpen, setPrefsOpen] = useState(false);
+  const [trackFilter, setTrackFilter] = useState<string>('all');
+  const tracks = profile.tracks ?? [];
 
   const list = useMemo(() => {
     const all = Object.values(matches).filter(
       (m) => jobs[m.jobId] && m.status !== 'dismissed' && !['applied', 'interview', 'offer', 'rejected'].includes(m.status) && (m.status !== 'new' || listable([jobs[m.jobId]]).length > 0),
     );
-    const filtered = all.filter((m) => filter === 'all' || (filter === 'new' ? m.status === 'new' : m.status === filter));
+    const filtered = all.filter((m) => (filter === 'all' || (filter === 'new' ? m.status === 'new' : m.status === filter)) && (trackFilter === 'all' || m.trackId === trackFilter));
     return filtered.sort((a, b) => scoreOf(b, jobs[b.jobId]) - scoreOf(a, jobs[a.jobId])).slice(0, 120);
-  }, [matches, jobs, filter]);
+  }, [matches, jobs, filter, trackFilter]);
 
   const counts = useMemo(() => {
     const v = Object.values(matches);
@@ -164,6 +166,20 @@ export default function Home() {
           ))}
         </div>
 
+        {tracks.length > 1 && (
+          <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-2">
+            {[{ id: 'all', name: t.tracks.all }, ...tracks.map((tr) => ({ id: tr.id, name: tr.name || t.tracks.untitled }))].map((tr) => (
+              <button
+                key={tr.id}
+                onClick={() => setTrackFilter(tr.id)}
+                className={`h-8 shrink-0 rounded-xl px-3.5 text-[12.5px] font-bold transition-colors ${trackFilter === tr.id ? 'bg-gold text-[#2a1a10]' : 'border border-line bg-surface text-muted'}`}
+              >
+                {tr.name}
+              </button>
+            ))}
+          </div>
+        )}
+
         {list.length === 0 ? (
           <Empty
             icon={<Radar className="size-9" />}
@@ -177,7 +193,7 @@ export default function Home() {
           />
         ) : (
           // Keyed by filter: switching tabs swaps the list at once instead of waiting for every card's exit animation.
-          <motion.div key={filter} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.16 }} className="space-y-3">
+          <motion.div key={filter + trackFilter} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.16 }} className="space-y-3">
             {list.map((m, i) => (
               <JobCard key={m.jobId} job={jobs[m.jobId]} match={m} index={i} />
             ))}

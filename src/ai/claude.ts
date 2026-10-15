@@ -40,7 +40,7 @@ async function structured<T extends z.ZodType>(cfg: AiConfig, schema: T, effort:
 }
 
 function profileBrief(p: Profile): string {
-  const { cvText, ...rest } = p;
+  const { cvText, tracks: _tracks, ...rest } = p;
   return JSON.stringify({ ...rest, cityName: cityOf(p.city)?.en ?? p.city, cvText: cvText.slice(0, 12000) }, null, 1);
 }
 
@@ -239,8 +239,9 @@ export type ProfileSuggestion = z.infer<typeof SuggestionSchema> & { id: string 
 const ReviewSchema = z.object({ suggestions: z.array(SuggestionSchema) });
 
 /** Compares the uploaded CV with the profile and proposes concrete, ready-to-apply fixes. */
-export async function reviewProfile(cfg: AiConfig, p: Profile, uiLang: Lang): Promise<ProfileSuggestion[]> {
-  const { cvText, prefs: _prefs, ...profile } = p;
+export async function reviewProfile(cfg: AiConfig, p: Profile, uiLang: Lang, cvOverride?: string): Promise<ProfileSuggestion[]> {
+  const { cvText: ownCv, prefs: _prefs, tracks: _tracks, ...profile } = p;
+  const cvText = cvOverride ?? ownCv;
   const r = await structured(
     cfg,
     ReviewSchema,
@@ -259,4 +260,43 @@ ${JSON.stringify(profile, null, 1)}
     12000,
   );
   return r.suggestions.map((s, i) => ({ ...s, id: `${s.field}:${i}:${(s.text ?? s.items?.join(',') ?? s.experience?.company ?? s.education?.degree ?? s.language?.name ?? String(s.years ?? '')).slice(0, 40)}` }));
+}
+
+const TrackSchema = z.object({
+  name: z.string().describe('short field name in the UI language, e.g. "Sales", "Reception", "Pharmacy"'),
+  targetTitles: z.array(z.string()).describe('2-4 job titles employers in Qatar use for this field, in English'),
+  headline: z.string().describe('professional title for CVs in this field'),
+  summary: z.string().describe('3-4 line professional summary for this field, in the language of the CV'),
+  skills: z.array(z.string()).describe('8-12 skills from the candidate data relevant to this field'),
+});
+
+export type TrackDraft = z.infer<typeof TrackSchema>;
+
+/** Groups the candidate's history into distinct career fields (up to `max`). */
+export async function suggestTracks(cfg: AiConfig, p: Profile, uiLang: Lang, max: number): Promise<TrackDraft[]> {
+  const r = await structured(
+    cfg,
+    z.object({ tracks: z.array(TrackSchema) }),
+    'low',
+    `UI language: ${uiLang === 'ar' ? 'Arabic' : 'English'}.
+This candidate may have worked in several unrelated fields (for example sales, reception and pharmacy). Identify the distinct career fields they can realistically apply to in Qatar, based only on their real experience, education and skills — at most ${max}. Return one track per field; if they clearly work in a single field return just one.
+Existing tracks (do not duplicate): ${JSON.stringify((p.tracks ?? []).map((t) => t.name))}
+
+<candidate>
+${profileBrief({ ...p, tracks: [] })}
+</candidate>`,
+    8000,
+  );
+  return r.tracks.slice(0, max);
+}
+
+/** Reads the CV uploaded for one track into that track's titles, pitch and skills. */
+export async function parseTrackCv(cfg: AiConfig, cvText: string, uiLang: Lang): Promise<TrackDraft> {
+  return structured(
+    cfg,
+    TrackSchema,
+    'low',
+    `UI language for the name: ${uiLang === 'ar' ? 'Arabic' : 'English'}. This CV targets one career field. Extract that field's name, target titles, headline, summary and skills — only from the CV.\n\n<cv>\n${cvText.slice(0, 30000)}\n</cv>`,
+    6000,
+  );
 }

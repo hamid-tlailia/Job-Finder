@@ -1,6 +1,7 @@
 import { motion } from 'motion/react';
 import { useEffect } from 'react';
 import { CvActions, SuggestionList } from '../ui/Suggestions';
+import { TracksCard } from '../ui/TracksCard';
 import { localGaps, runProfileReview } from '../lib/profileReview';
 import { CircleAlert, FileText, ChevronLeft, ChevronRight, GraduationCap, Languages, Mail, MapPin, Pencil, Phone, Settings2, SlidersHorizontal, Award, BriefcaseBusiness } from 'lucide-react';
 import { useStore } from '../store/useStore';
@@ -77,6 +78,7 @@ export default function ProfilePage() {
           </h3>
           <CvActions />
         </div>
+        <TracksCard />
         <SuggestionList />
         {gaps.length > 0 && (
           <div className="card p-4">

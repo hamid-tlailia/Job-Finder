@@ -1,7 +1,8 @@
 import type { Job, SourceContext } from '../core/types';
 import { SOURCES } from '../core/sources';
 import { listable, settle } from '../core/sources/util';
-import { buildQueries, dedupeKey, localAnalysis, localScore } from '../core/match';
+import { bestTrack, buildQueries, dedupeKey, localAnalysis, trackProfile } from '../core/match';
+import type { Profile } from '../core/types';
 import { templatePackage } from '../core/template';
 import { analyzeJob, generatePackage } from '../ai/claude';
 import { useStore } from '../store/useStore';
@@ -25,16 +26,29 @@ async function withDetail(job: Job, c: SourceContext): Promise<Job> {
   }
 }
 
+/** The profile seen through the job's career track; assigns the best track when none is set yet. */
+function profileFor(jobId: string, job: Job): Profile {
+  const st = useStore.getState();
+  const tracks = st.profile.tracks ?? [];
+  let trackId = st.matches[jobId]?.trackId;
+  if (!tracks.some((t) => t.id === trackId)) {
+    trackId = bestTrack(job, st.profile).trackId;
+    if (trackId) st.upsertMatch(jobId, { trackId });
+  }
+  return trackProfile(st.profile, tracks.find((t) => t.id === trackId));
+}
+
 /** Prepares (or re-prepares) the tailored application for one job. */
 export async function prepare(jobId: string): Promise<void> {
   const st = useStore.getState();
-  const { profile, settings } = st;
+  const { settings } = st;
   let job = st.jobs[jobId];
   if (!job) return;
   st.upsertMatch(jobId, { status: 'preparing', error: undefined });
   try {
     job = await withDetail(job, ctx());
     st.upsertJob(job);
+    const profile = profileFor(jobId, job);
     let analysis = st.matches[jobId]?.analysis;
     if (settings.apiKey) {
       const cfg = { apiKey: settings.apiKey, model: settings.model };
@@ -47,7 +61,7 @@ export async function prepare(jobId: string): Promise<void> {
       const pkg = await generatePackage(cfg, profile, job, analysis, settings.cvTemplate);
       st.upsertMatch(jobId, { analysis, pkg, status: 'ready' });
     } else {
-      const ls = localScore(job, profile);
+      const ls = bestTrack(job, st.profile).score;
       st.upsertMatch(jobId, { analysis: analysis ?? localAnalysis(job, profile, ls), pkg: templatePackage(profile, job, settings.cvTemplate), status: 'ready' });
     }
   } catch (e) {
@@ -103,12 +117,15 @@ export async function runSearch(): Promise<{ found: number; fresh: number; ready
 
   store.setRun({ step: 'score', done: 0, total: fresh.length });
   const scored = fresh
-    .map((j) => ({ j, ls: localScore(j, profile) }))
+    .map((j) => {
+      const b = bestTrack(j, profile);
+      return { j, ls: b.score, trackId: b.trackId };
+    })
     .filter((x) => !x.ls.blocked)
     .sort((a, b) => b.ls.score - a.ls.score);
-  for (const { j, ls } of scored) {
+  for (const { j, ls, trackId } of scored) {
     st.upsertJob(j);
-    st.upsertMatch(j.id, { localScore: ls.score, analysis: localAnalysis(j, profile, ls) });
+    st.upsertMatch(j.id, { localScore: ls.score, trackId, analysis: localAnalysis(j, profile, ls) });
   }
 
   // Deep analysis on the strongest candidates only, to keep AI cost and time bounded.
@@ -125,15 +142,18 @@ export async function runSearch(): Promise<{ found: number; fresh: number; ready
           useStore.getState().upsertMatch(j.id, { status: 'dismissed' });
           return;
         }
-        let score = localScore(job, profile).score;
+        const best = bestTrack(job, profile);
+        useStore.getState().upsertMatch(j.id, { trackId: best.trackId });
+        const viewed = trackProfile(profile, profile.tracks?.find((t) => t.id === best.trackId));
+        let score = best.score.score;
         if (settings.apiKey) {
-          const r = await analyzeJob({ apiKey: settings.apiKey, model: settings.model }, profile, job, settings.uiLang);
+          const r = await analyzeJob({ apiKey: settings.apiKey, model: settings.model }, viewed, job, settings.uiLang);
           job = { ...job, ...r.job };
           useStore.getState().upsertJob(job);
           useStore.getState().upsertMatch(j.id, { analysis: r.analysis });
           score = r.analysis.score;
         } else {
-          useStore.getState().upsertMatch(j.id, { localScore: score, analysis: localAnalysis(job, profile, localScore(job, profile)) });
+          useStore.getState().upsertMatch(j.id, { localScore: score, analysis: localAnalysis(job, viewed, best.score) });
         }
         if (score >= profile.prefs.minScore) {
           await prepare(j.id);

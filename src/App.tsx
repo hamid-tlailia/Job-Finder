@@ -22,6 +22,7 @@ import ProfilePage from './pages/Profile';
 import JobDetail from './pages/JobDetail';
 import Settings from './pages/Settings';
 import EditProfile from './pages/EditProfile';
+import EditTrack from './pages/EditTrack';
 
 function useTheme(): boolean {
   const mode = useStore((s) => s.settings.theme);
@@ -118,6 +119,7 @@ function Main() {
             {top.name === 'job' && <JobDetail id={top.id} />}
             {top.name === 'settings' && <Settings />}
             {top.name === 'editProfile' && <EditProfile section={top.section} />}
+            {top.name === 'track' && <EditTrack id={top.id} />}
           </motion.div>
         )}
       </AnimatePresence>

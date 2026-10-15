@@ -56,6 +56,7 @@ addEventListener('checkJobs', async (resolve) => {
     for (const s of SOURCES) {
       if (cfg.sources[s.id] === false || (s.remoteOnly && !remoteOk)) continue;
       if (s.needsKey && !cfg.keys[s.needsKey]) continue;
+      if (s.id === 'google') continue; // keep the SerpApi monthly quota for foreground searches
       try {
         found.push(...(await s.search(ctx)));
       } catch {

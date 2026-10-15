@@ -110,6 +110,8 @@ export interface TailoredCv {
   skills: string[];
   /** Skills organised by category; when present the PDF prints these instead of the flat list. */
   skillGroups?: { name: string; items: string[] }[];
+  /** 3-4 headline achievements, shown by the executive template. */
+  highlights?: string[];
   experience: ExperienceItem[];
   education: EducationItem[];
   certifications: string[];
@@ -117,6 +119,7 @@ export interface TailoredCv {
 }
 
 export type Channel = 'email' | 'whatsapp' | 'website';
+export type CvTemplate = 'classic' | 'executive';
 
 export interface ApplicationPackage {
   language: Lang;
@@ -129,6 +132,7 @@ export interface ApplicationPackage {
   atsKeywords: string[];
   channel: Channel;
   target: string;
+  template?: CvTemplate;
   by: 'ai' | 'local';
   createdAt: string;
 }

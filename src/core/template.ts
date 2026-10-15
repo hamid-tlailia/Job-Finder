@@ -1,9 +1,21 @@
-import type { ApplicationPackage, Channel, Job, Lang, Profile, TailoredCv } from './types';
+import type { ApplicationPackage, Channel, CvTemplate, Job, Lang, Profile, TailoredCv } from './types';
 import { QATAR_CITIES, cityOf } from './qatar';
 
 export function pickLanguage(job: Job, p: Profile): Lang {
   if (p.prefs.cvLanguage !== 'auto') return p.prefs.cvLanguage;
   return job.language === 'ar' ? 'ar' : 'en';
+}
+
+const SENIOR_TITLE = /\b(manager|head|director|chief|vp|vice president|general manager|gm|c[eofti]o|partner|principal|lead)\b|مدير|رئيس|نائب الرئيس|الرئيس التنفيذي/i;
+
+/**
+ * Classic (single-column ATS) is the market default; the executive layout is the norm for
+ * managers and directors, so it is picked for senior targets unless the user fixed a choice.
+ */
+export function chooseTemplate(p: Profile, job: Job, pref: 'auto' | CvTemplate = 'auto'): CvTemplate {
+  if (pref !== 'auto') return pref;
+  const senior = p.prefs.seniority.some((s) => s === 'lead' || s === 'executive') || p.yearsExperience >= 12;
+  return senior || SENIOR_TITLE.test(job.title) ? 'executive' : 'classic';
 }
 
 export function pickChannel(job: Job): { channel: Channel; target: string } {
@@ -62,6 +74,7 @@ export function baseCv(p: Profile, job: Job, lang: Lang): TailoredCv {
     summary: p.summary || defaultSummary(p, lang),
     personal: personalLine(p, lang),
     skills: skills.slice(0, 14),
+    highlights: p.experience.flatMap((e) => e.bullets.slice(0, 1)).filter((b) => b.trim()).slice(0, 4),
     experience: p.experience,
     education: p.education,
     certifications: p.certifications,
@@ -70,7 +83,7 @@ export function baseCv(p: Profile, job: Job, lang: Lang): TailoredCv {
 }
 
 /** Deterministic package used when no AI key is configured. */
-export function templatePackage(p: Profile, job: Job): ApplicationPackage {
+export function templatePackage(p: Profile, job: Job, templatePref: 'auto' | CvTemplate = 'auto'): ApplicationPackage {
   const lang = pickLanguage(job, p);
   const { channel, target } = pickChannel(job);
   const company = job.company || (lang === 'ar' ? 'فريقكم' : 'your team');
@@ -97,6 +110,7 @@ export function templatePackage(p: Profile, job: Job): ApplicationPackage {
     atsKeywords: p.skills.filter((s) => job.description.toLowerCase().includes(s.toLowerCase())),
     channel,
     target,
+    template: chooseTemplate(p, job, templatePref),
     by: 'local',
     createdAt: new Date().toISOString(),
   };

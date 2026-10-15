@@ -49,7 +49,7 @@ export const googleJobs: JobSource = {
   async search(ctx) {
     if (!ctx.keys.serpapi) return [];
     const out: Job[] = [];
-    for (const q of ctx.queries) {
+    for (const q of ctx.queries.slice(0, 2)) {
       const txt = await ctx.fetchText(`https://serpapi.com/search.json?engine=google_jobs&q=${encodeURIComponent(q + ' Qatar')}&location=Qatar&gl=qa&hl=en&api_key=${ctx.keys.serpapi}`);
       const data = JSON.parse(txt) as { jobs_results?: Record<string, unknown>[] };
       for (const j of data.jobs_results ?? []) {

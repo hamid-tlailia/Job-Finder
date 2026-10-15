@@ -251,12 +251,23 @@ export default function JobDetail({ id }: { id: string }) {
                 <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }} className="mt-4 space-y-4" dir={pkg.language === 'ar' ? 'rtl' : 'ltr'}>
                   {tab === 'cv' && (
                     <>
+                      <div dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+                        <Field label={t.job.template}>
+                          <Segmented value={pkg.template ?? 'classic'} onChange={(v) => setPkg({ template: v })} options={[{ id: 'classic', label: t.templates.classic }, { id: 'executive', label: t.templates.executive }]} />
+                        </Field>
+                        <p className="mt-1.5 text-xs text-muted">{(pkg.template ?? 'classic') === 'executive' ? t.templates.executiveBody : t.templates.classicBody}</p>
+                      </div>
                       <Field label={t.ob.basics.headline}>
                         <Input value={pkg.cv.headline} onChange={(e) => setCv({ headline: e.target.value })} />
                       </Field>
                       <Field label={t.job.summary}>
                         <TextArea rows={5} value={pkg.cv.summary} onChange={(e) => setCv({ summary: e.target.value })} />
                       </Field>
+                      {pkg.template === 'executive' && (
+                        <Field label={t.job.highlights}>
+                          <TextArea rows={4} value={(pkg.cv.highlights ?? []).join('\n')} onChange={(e) => setCv({ highlights: e.target.value.split('\n') })} />
+                        </Field>
+                      )}
                       {pkg.cv.skillGroups?.length ? (
                         pkg.cv.skillGroups.map((g, gi) => (
                           <Field key={gi} label={`${t.job.skills} · ${g.name}`}>

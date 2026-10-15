@@ -36,6 +36,7 @@ export default function Onboarding({ onBack }: { onBack: () => void }) {
   const [dir, setDir] = useState(1);
   const [parsing, setParsing] = useState(false);
   const [cvMsg, setCvMsg] = useState('');
+  const [showGuide, setShowGuide] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const opts = <T extends string>(o: Record<T, string>) => (Object.keys(o) as T[]).map((id) => ({ id, label: o[id] }));
 
@@ -277,6 +278,26 @@ export default function Onboarding({ onBack }: { onBack: () => void }) {
           <Field label={`${t.ob.finish.key} · ${t.common.optional}`} hint={t.ob.finish.keyHelp}>
             <Input dir="ltr" type="password" value={settings.apiKey} placeholder="sk-ant-…" onChange={(e) => setSettings({ apiKey: e.target.value.trim() })} />
           </Field>
+          <div>
+            <button type="button" onClick={() => setShowGuide((v) => !v)} className="text-sm font-semibold text-accent">
+              {t.settings.howKey}
+            </button>
+            <AnimatePresence>
+              {showGuide && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                  <ol className="mt-3 space-y-2.5 rounded-2xl bg-surface-2 p-4">
+                    {t.keyGuide.claude.map((st, i) => (
+                      <li key={i} className="flex gap-2.5 text-[13.5px] leading-relaxed">
+                        <span className="font-bold text-accent">{i + 1}.</span>
+                        {st}
+                      </li>
+                    ))}
+                  </ol>
+                  <p className="mt-2 text-xs leading-relaxed text-muted">{t.keyGuide.claudeCost}</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
           <Field label={`${t.ob.finish.minScore}: ${prefs.minScore}%`}>
             <input type="range" min={30} max={90} step={5} value={prefs.minScore} onChange={(e) => setPrefs({ minScore: Number(e.target.value) })} className="w-full accent-[var(--accent)]" />
           </Field>

@@ -44,11 +44,11 @@ export async function prepare(jobId: string): Promise<void> {
         job = { ...job, ...r.job };
         st.upsertJob(job);
       }
-      const pkg = await generatePackage(cfg, profile, job, analysis);
+      const pkg = await generatePackage(cfg, profile, job, analysis, settings.cvTemplate);
       st.upsertMatch(jobId, { analysis, pkg, status: 'ready' });
     } else {
       const ls = localScore(job, profile);
-      st.upsertMatch(jobId, { analysis: analysis ?? localAnalysis(job, profile, ls), pkg: templatePackage(profile, job), status: 'ready' });
+      st.upsertMatch(jobId, { analysis: analysis ?? localAnalysis(job, profile, ls), pkg: templatePackage(profile, job, settings.cvTemplate), status: 'ready' });
     }
   } catch (e) {
     st.upsertMatch(jobId, { status: 'new', error: e instanceof Error ? e.message : String(e) });
@@ -63,7 +63,16 @@ export async function runSearch(): Promise<{ found: number; fresh: number; ready
   const { settings, profile } = store;
   const c = ctx();
   const remoteOk = profile.prefs.workplaces.includes('remote');
-  const sources = SOURCES.filter((s) => settings.sources[s.id] !== false && (!s.remoteOnly || remoteOk) && (!s.needsKey || (s.needsKey === 'jooble' ? settings.joobleKey : settings.serpapiKey)));
+  // SerpApi's free plan is 250 searches a month, so Google Jobs runs at most every 6 hours.
+  const googleDue = !settings.lastGoogleRun || Date.now() - new Date(settings.lastGoogleRun).getTime() > 6 * 3600e3;
+  const sources = SOURCES.filter(
+    (s) =>
+      settings.sources[s.id] !== false &&
+      (!s.remoteOnly || remoteOk) &&
+      (!s.needsKey || (s.needsKey === 'jooble' ? settings.joobleKey : settings.serpapiKey)) &&
+      (s.id !== 'google' || googleDue),
+  );
+  if (sources.some((s) => s.id === 'google')) store.setSettings({ lastGoogleRun: new Date().toISOString() });
   store.setRun({ running: true, step: 'fetch', done: 0, total: sources.length, errors: [] });
 
   const all: Job[] = [];

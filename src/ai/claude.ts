@@ -1,8 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import * as z from 'zod/v4';
-import type { Analysis, ApplicationPackage, Job, Lang, Profile } from '../core/types';
-import { contactLine, personalLine, pickChannel, pickLanguage } from '../core/template';
+import type { Analysis, ApplicationPackage, CvTemplate, Job, Lang, Profile } from '../core/types';
+import { chooseTemplate, contactLine, personalLine, pickChannel, pickLanguage } from '../core/template';
 import { cityOf } from '../core/qatar';
 
 export const MODELS = [
@@ -126,6 +126,7 @@ const PackageSchema = z.object({
   summary: z.string().describe('3-4 line professional summary tailored to this job'),
   skills: z.array(z.string()).describe('10-16 skills, most relevant to the job first, using the posting wording where truthful'),
   skillGroups: z.array(z.object({ name: z.string(), items: z.array(z.string()) })).describe('the same skills organised into 2-4 categories such as Technical, Software & Tools, Professional, each with 3-6 items'),
+  highlights: z.array(z.string()).describe('3-4 career highlights: the candidate\'s strongest achievements most relevant to this job, one line each, quantified where the data supports it'),
   experience: z.array(ExperienceSchema).describe('the candidate roles in reverse chronological order; dates as "Mon YYYY" (or the Arabic month name), end empty if current; 3-5 bullets each, most relevant first, each starting with a strong action verb and stating scope or a measurable result when the candidate data supports it, max ~25 words'),
   education: z.array(z.object({ degree: z.string(), school: z.string(), year: z.string() })),
   certifications: z.array(z.string()),
@@ -138,7 +139,7 @@ const PackageSchema = z.object({
   atsKeywords: z.array(z.string()).describe('keywords from the posting now covered by the CV'),
 });
 
-export async function generatePackage(cfg: AiConfig, p: Profile, job: Job, analysis?: Analysis): Promise<ApplicationPackage> {
+export async function generatePackage(cfg: AiConfig, p: Profile, job: Job, analysis?: Analysis, templatePref: 'auto' | CvTemplate = 'auto'): Promise<ApplicationPackage> {
   const lang = p.prefs.cvLanguage !== 'auto' ? p.prefs.cvLanguage : analysis?.language ?? pickLanguage(job, p);
   const r = await structured(
     cfg,
@@ -172,6 +173,7 @@ ${jobBrief(job)}
       personal: personalLine(p, lang),
       skills: r.skills,
       skillGroups: r.skillGroups.filter((g) => g.items.length),
+      highlights: r.highlights,
       experience: r.experience,
       education: r.education,
       certifications: r.certifications,
@@ -185,6 +187,7 @@ ${jobBrief(job)}
     atsKeywords: r.atsKeywords,
     channel,
     target,
+    template: chooseTemplate(p, job, templatePref),
     by: 'ai',
     createdAt: new Date().toISOString(),
   };

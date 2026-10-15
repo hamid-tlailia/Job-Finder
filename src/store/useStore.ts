@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import type { Job, MatchRecord, MatchStatus, Profile } from '../core/types';
+import type { CvTemplate, Job, MatchRecord, MatchStatus, Profile } from '../core/types';
 import { emptyProfile } from './defaults';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
@@ -17,6 +17,8 @@ export interface Settings {
   maxAiPerRun: number;
   notifications: boolean;
   backgroundMinutes: number;
+  cvTemplate: 'auto' | CvTemplate;
+  lastGoogleRun?: string;
 }
 
 export interface RunState {
@@ -62,6 +64,7 @@ const defaultSettings: Settings = {
   maxAiPerRun: 8,
   notifications: true,
   backgroundMinutes: 60,
+  cvTemplate: 'auto',
 };
 
 const newMatch = (id: string): MatchRecord => ({ jobId: id, localScore: 0, status: 'new', seen: false, updatedAt: '' });

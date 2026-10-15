@@ -5,8 +5,9 @@
 export const INDUSTRIES = [
   {
     id: 'hotels',
-    re: /\b(hotels?|resorts?|hospitality|housekeeping|ritz[- ]carlton|marriott|hilton|four seasons|sheraton|intercontinental|kempinski|mondrian|tivoli|fairmont|raffles|mandarin oriental|st\.? regis|accor|ihg|radisson|novotel|ibis|movenpick|mövenpick|shangri[- ]la|hyatt|w doha|banyan tree|anantara|jumeirah|rotana|millennium hotels|wyndham|crowne plaza|holiday inn|best western|le m[eé]ridien|westin|sofitel|pullman|swiss[oô]tel|kimpton|waldorf|conrad|park hyatt|habitas)\b|فندق|فنادق|منتجع|ضيافة/i,
+    re: /\b(hotels?|hospitality|housekeeping|ritz[- ]carlton|marriott|hilton|four seasons|sheraton|intercontinental|kempinski|mondrian|tivoli|fairmont|raffles|mandarin oriental|st\.? regis|accor|ihg|radisson|novotel|ibis|movenpick|mövenpick|shangri[- ]la|hyatt|w doha|banyan tree|anantara|jumeirah|rotana|millennium hotels|wyndham|crowne plaza|holiday inn|best western|le m[eé]ridien|westin|sofitel|pullman|swiss[oô]tel|kimpton|waldorf|conrad|park hyatt|habitas)\b|فندق|فنادق|ضيافة/i,
   },
+  { id: 'resorts', re: /\b(resorts?|beach club|spa resort|banyan tree|anantara|zulal|sealine|six senses|wellness retreat)\b|منتجع|منتجعات/i },
   { id: 'restaurants', re: /\b(restaurants?|caf[eé]s?|coffee shop|barista|waiter|waitress|catering|kitchen|chef|f&b|food (and|&) beverage|bakery|fast food)\b|مطعم|مطاعم|مقهى|كافيه|تموين|ضيافة طعام/i },
   { id: 'construction', re: /\b(construction|contracting|civil works|site (engineer|supervisor)|foreman|scaffold|mep contractor|building works)\b|مقاولات|إنشاءات|انشاءات/i },
   { id: 'retail', re: /\b(retail|showroom|supermarket|hypermarket|shopping mall|cashier|merchandis(er|ing)|sales associate)\b|تجزئة|سوبرماركت|هايبر ماركت|كاشير/i },

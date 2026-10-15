@@ -99,7 +99,7 @@ function Main() {
   return (
     <>
       <AnimatePresence mode="popLayout" initial={false}>
-        <motion.main key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} className="min-h-full pb-44">
+        <motion.main key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} className="min-h-full pb-28">
           <TabPage />
         </motion.main>
       </AnimatePresence>

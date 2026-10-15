@@ -103,6 +103,9 @@ export default function Home() {
                 </button>
               )}
             </div>
+            <Button size="sm" loading={run.running} onClick={search} icon={!run.running ? <RefreshCw className="size-4" /> : undefined}>
+              {run.running ? '' : t.home.run}
+            </Button>
           </div>
           <AnimatePresence>
             {run.running && (
@@ -175,24 +178,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Always-visible search action, floating above the tab bar. */}
-      <div className="pointer-events-none fixed inset-x-0 z-20 flex justify-center px-5" style={{ bottom: 'calc(var(--sab) + 86px)' }}>
-        <motion.button
-          initial={{ y: 40, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 260, damping: 24, delay: 0.2 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={search}
-          disabled={run.running}
-          className="pointer-events-auto relative flex h-14 min-w-[13rem] items-center justify-center gap-2.5 overflow-hidden rounded-full bg-accent px-7 text-[15px] font-bold text-white shadow-[0_14px_32px_-10px_var(--glow),0_4px_12px_rgba(0,0,0,0.25)]"
-        >
-          {run.running && <motion.span className="absolute inset-y-0 start-0 bg-white/15" animate={{ width: `${Math.max(8, pct)}%` }} />}
-          <motion.span animate={run.running ? { rotate: 360 } : { rotate: 0 }} transition={run.running ? { repeat: Infinity, duration: 1.1, ease: 'linear' } : {}} className="relative">
-            <RefreshCw className="size-5" />
-          </motion.span>
-          <span className="relative">{run.running ? `${t.home.steps[run.step as keyof typeof t.home.steps] ?? t.home.running}${run.total ? ` · ${run.done}/${run.total}` : ''}` : t.home.run}</span>
-        </motion.button>
-      </div>
     </div>
   );
 }

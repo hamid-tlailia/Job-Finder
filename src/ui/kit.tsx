@@ -16,13 +16,14 @@ export function Button({ variant = 'primary', loading, icon, children, className
     outline: 'border border-line text-ink bg-surface',
     soft: 'bg-accent-soft text-accent',
   };
-  const s = { sm: 'h-9 px-3.5 text-[13px] rounded-xl', md: 'h-12 px-5 text-[15px] rounded-2xl', lg: 'h-14 px-6 text-base rounded-2xl' }[size];
+  // min-height (not fixed height) so long Arabic labels wrap inside the button instead of spilling out.
+  const s = { sm: 'min-h-9 py-1.5 px-3.5 text-[13px] rounded-xl', md: 'min-h-12 py-2 px-4 text-[15px] rounded-2xl', lg: 'min-h-14 py-2.5 px-6 text-base rounded-2xl' }[size];
   return (
     <motion.button
       whileTap={{ scale: 0.96 }}
       transition={spring}
       onPointerDown={() => haptic()}
-      className={`relative inline-flex items-center justify-center gap-2 font-semibold transition-colors disabled:opacity-50 ${v[variant]} ${s} ${className}`}
+      className={`relative inline-flex items-center justify-center gap-2 text-center font-semibold leading-tight transition-colors disabled:opacity-50 ${v[variant]} ${s} ${className}`}
       disabled={loading || rest.disabled}
       {...rest}
     >

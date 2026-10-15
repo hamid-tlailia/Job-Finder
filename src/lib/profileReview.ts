@@ -2,6 +2,7 @@ import type { Profile } from '../core/types';
 import { reviewProfile, type ProfileSuggestion } from '../ai/claude';
 import { useStore } from '../store/useStore';
 import { syncBackground } from './background';
+import { addTrack } from './tracks';
 
 export type Section = ProfileSuggestion['section'];
 
@@ -84,4 +85,50 @@ export function localGaps(p: Profile): { section: Section; key: 'phone' | 'email
   if (!p.languages.length) gaps.push({ section: 'languages', key: 'languages' });
   if (p.cvText.trim().length < 80) gaps.push({ section: 'basics', key: 'cv' });
   return gaps;
+}
+
+/** Fields that describe one career field (pitch) rather than shared facts. */
+export const PITCH_FIELDS = ['headline', 'summary', 'targetTitles'] as const;
+export const isPitch = (s: ProfileSuggestion) => (PITCH_FIELDS as readonly string[]).includes(s.field);
+
+/** Current profile value a suggestion would change, for side-by-side display. */
+export function currentValue(s: ProfileSuggestion, p: Profile): string {
+  switch (s.field) {
+    case 'targetTitles':
+    case 'skills':
+    case 'certifications':
+      return p[s.field].join('، ');
+    case 'yearsExperience':
+      return String(p.yearsExperience);
+    case 'experience':
+    case 'education':
+    case 'languages':
+      return '';
+    default:
+      return String(p[s.field] ?? '');
+  }
+}
+
+/**
+ * Turns the CV's field-specific pitch (title, summary, job titles, extra skills) into a new career
+ * track instead of overwriting the shared profile. Returns the new track id.
+ */
+export function createTrackFromSuggestions(): string | undefined {
+  const { suggestions, profile, dropSuggestion } = useStore.getState();
+  const pitch = suggestions.filter(isPitch);
+  const pick = (f: string) => pitch.find((s) => s.field === f);
+  const headline = pick('headline')?.text ?? '';
+  const skills = suggestions.find((s) => s.field === 'skills')?.items ?? [];
+  const track = addTrack({
+    name: headline.split(/[|&,–-]/)[0].trim().slice(0, 30),
+    headline,
+    summary: pick('summary')?.text ?? '',
+    targetTitles: pick('targetTitles')?.items ?? (headline ? [headline] : []),
+    skills,
+    cvText: profile.cvText,
+    cvName: 'CV',
+  });
+  if (!track) return undefined;
+  for (const s of pitch) dropSuggestion(s.id);
+  return track.id;
 }

@@ -59,8 +59,8 @@ function TabBar() {
   const { tab, setTab } = useNav();
   const readyCount = useStore((s) => Object.values(s.matches).filter((m) => m.status === 'ready' && !m.seen).length);
   return (
-    <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-      <div className="mx-auto flex max-w-xl px-2 pt-1.5">
+    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface shadow-[0_-8px_24px_-14px_rgba(0,0,0,0.4)]" style={{ paddingBottom: 'calc(var(--sab) + 6px)' }}>
+      <div className="mx-auto flex max-w-xl px-2 pt-2">
         {TABS.map(({ id, icon: Icon }) => {
           const active = tab === id;
           return (
@@ -70,18 +70,18 @@ function TabBar() {
                 haptic();
                 setTab(id);
               }}
-              className={`relative flex flex-1 flex-col items-center gap-0.5 py-1.5 text-[11px] font-semibold transition-colors ${active ? 'text-accent' : 'text-muted'}`}
+              className={`flex flex-1 flex-col items-center gap-1.5 py-1 text-[11.5px] font-semibold transition-colors ${active ? 'text-accent' : 'text-muted'}`}
             >
-              {active && <motion.span layoutId="tab-pill" transition={spring} className="absolute top-0.5 h-8 w-14 rounded-full bg-accent-soft" />}
-              <span className="relative">
+              <span className="relative grid h-8 w-16 place-items-center">
+                {active && <motion.span layoutId="tab-pill" transition={spring} className="absolute inset-0 rounded-full" style={{ background: 'var(--pill)' }} />}
                 <Icon className="relative size-[22px]" strokeWidth={active ? 2.4 : 1.9} />
                 {id === 'review' && readyCount > 0 && (
-                  <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-1.5 -end-2.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-accent px-1 text-[10px] text-white ring-2 ring-[var(--surface)]">
+                  <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-1 end-2 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-accent px-1 text-[10px] text-white ring-2 ring-[var(--surface)]">
                     {readyCount}
                   </motion.span>
                 )}
               </span>
-              <span className="relative">{t.tabs[id]}</span>
+              <span>{t.tabs[id]}</span>
             </button>
           );
         })}
@@ -99,7 +99,7 @@ function Main() {
   return (
     <>
       <AnimatePresence mode="popLayout" initial={false}>
-        <motion.main key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} className="min-h-full pb-28">
+        <motion.main key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} className="min-h-full pb-44">
           <TabPage />
         </motion.main>
       </AnimatePresence>
@@ -151,6 +151,7 @@ export default function App() {
 
   useEffect(() => {
     if (!onboarded) return;
+    useStore.getState().prune(); // drop stored jobs that are old, closed or outside Qatar
     void syncBackground();
     const { lastRun } = useStore.getState();
     if (!lastRun || Date.now() - new Date(lastRun).getTime() > 30 * 60000) void runSearch().catch(() => undefined);
@@ -158,6 +159,7 @@ export default function App() {
 
   return (
     <MotionConfig reducedMotion="user">
+      <div className="status-scrim" aria-hidden />
       <Toaster />
       <AnimatePresence mode="wait">
         {onboarded ? (

@@ -37,7 +37,7 @@ export default function Settings() {
 
   return (
     <div className="min-h-full pb-16">
-      <div className="glass sticky top-0 z-20 flex items-center gap-2 border-b border-line px-3 pt-safe pb-2">
+      <div className="sticky top-0 bg-surface z-20 flex items-center gap-2 border-b border-line px-3 pt-safe pb-2">
         <button onClick={close} className="grid size-11 place-items-center rounded-full">
           <Back className="size-5" />
         </button>
@@ -194,7 +194,7 @@ export default function Settings() {
           )}
         </Sheet>
         <p className="mt-6 text-center text-xs text-muted">
-          {t.appName} · {t.settings.version} 1.3.0
+          {t.appName} · {t.settings.version} 1.4.0
         </p>
       </div>
     </div>

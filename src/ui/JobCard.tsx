@@ -15,11 +15,10 @@ export function JobCard({ job, match, index = 0 }: { job: Job; match: MatchRecor
   const where = city ? (lang === 'ar' ? city.ar : city.en) : job.location;
   return (
     <motion.button
-      layout
-      initial={{ opacity: 0, y: 18 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96 }}
-      transition={{ delay: Math.min(index, 8) * 0.04, type: 'spring', stiffness: 260, damping: 28 }}
+      transition={{ delay: Math.min(index, 5) * 0.025, type: 'spring', stiffness: 380, damping: 30 }}
       whileTap={{ scale: 0.98 }}
       onClick={() => push({ name: 'job', id: job.id })}
       className="card relative w-full overflow-hidden p-4 text-start"

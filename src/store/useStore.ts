@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { CvTemplate, Job, MatchRecord, MatchStatus, Profile } from '../core/types';
 import { emptyProfile } from './defaults';
+import { listable } from '../core/sources/util';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -105,8 +106,8 @@ export const useStore = create<State>()(
       setLastRun: (iso) => set({ lastRun: iso }),
       prune: () =>
         set((s) => {
-          const keep = new Set(['ready', 'applied', 'saved', 'interview', 'offer', 'preparing']);
-          const cutoff = Date.now() - 45 * 864e5;
+          // Anything the user acted on stays; everything else must still meet the listing rules.
+          const keep = new Set(['ready', 'applied', 'saved', 'interview', 'offer', 'rejected', 'preparing']);
           const ranked = Object.values(s.matches).sort((a, b) => (b.analysis?.score ?? b.localScore) - (a.analysis?.score ?? a.localScore));
           const jobs: Record<string, Job> = {};
           const matches: Record<string, MatchRecord> = {};
@@ -114,8 +115,8 @@ export const useStore = create<State>()(
           for (const m of ranked) {
             const j = s.jobs[m.jobId];
             if (!j) continue;
-            const old = new Date(j.fetchedAt).getTime() < cutoff;
-            if (keep.has(m.status) || (!old && kept < 300)) {
+            const ok = listable([j]).length > 0;
+            if (keep.has(m.status) || (ok && m.status !== 'dismissed' && kept < 300)) {
               jobs[j.id] = j;
               matches[m.jobId] = m;
               kept++;

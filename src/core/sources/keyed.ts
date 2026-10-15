@@ -1,6 +1,6 @@
 import type { Job, JobSource } from '../types';
 import { clean, htmlToText } from '../html';
-import { enrich, normalizeType, nowIso } from './util';
+import { enrich, normalizeType, nowIso, parsePosted } from './util';
 
 /** Jooble aggregates thousands of boards (Bayt, GulfTalent, company sites...). Free API key: jooble.org/api/about */
 export const jooble: JobSource = {
@@ -29,7 +29,7 @@ export const jooble: JobSource = {
             url: j.link,
             applyUrl: j.link,
             description: htmlToText(j.snippet ?? ''),
-            postedAt: j.updated,
+            postedAt: parsePosted(j.updated),
             employmentType: normalizeType(j.type),
             salary: j.salary || undefined,
             fetchedAt: nowIso(),
@@ -67,7 +67,7 @@ export const googleJobs: JobSource = {
             url: opts[0]?.link ?? (j.share_link as string),
             applyUrl: opts[0]?.link,
             description: String(j.description ?? ''),
-            postedAt: undefined,
+            postedAt: parsePosted(ext.posted_at),
             employmentType: normalizeType(ext.schedule_type),
             salary: ext.salary,
             fetchedAt: nowIso(),

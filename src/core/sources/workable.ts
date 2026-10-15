@@ -16,6 +16,7 @@ interface WorkableJob {
   created?: string;
   company?: { title?: string; image?: string };
   workplace?: string;
+  state?: string;
 }
 
 export const workable: JobSource = {
@@ -27,6 +28,7 @@ export const workable: JobSource = {
       const txt = await ctx.fetchText(`https://jobs.workable.com/api/v1/jobs?location=Qatar&query=${encodeURIComponent(q)}`);
       const data = JSON.parse(txt) as { jobs?: WorkableJob[] };
       for (const j of data.jobs ?? []) {
+        if (j.state && j.state !== 'published') continue;
         const loc = [j.location?.city, j.location?.countryName].filter(Boolean).join(', ') || 'Qatar';
         const desc = [j.description, j.requirementsSection && `<h3>Requirements</h3>${j.requirementsSection}`, j.benefitsSection && `<h3>Benefits</h3>${j.benefitsSection}`].filter(Boolean).join('\n');
         out.push(

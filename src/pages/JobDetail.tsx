@@ -100,7 +100,7 @@ export default function JobDetail({ id }: { id: string }) {
 
   return (
     <div className="min-h-full pb-36">
-      <div className="glass sticky top-0 z-20 flex items-center justify-between border-b border-line px-3 pt-safe pb-2">
+      <div className="sticky top-0 bg-surface z-20 flex items-center justify-between border-b border-line px-3 pt-safe pb-2">
         <button onClick={pop} className="grid size-11 place-items-center rounded-full">
           <Back className="size-5" />
         </button>
@@ -147,16 +147,16 @@ export default function JobDetail({ id }: { id: string }) {
           </span>
         </div>
 
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="card mt-5 flex items-center gap-4 p-4">
-          <ScoreRing score={score} size={76} stroke={6} />
-          <div className="min-w-0">
-            <div className="text-lg font-bold">{t.verdict[a?.verdict ?? 'fair']}</div>
-            <div className="mt-0.5 flex items-center gap-1 text-xs font-semibold text-gold">
-              {a?.by === 'ai' && <Sparkles className="size-3.5" />}
-              {a?.by === 'ai' ? 'AI' : ''}
-            </div>
-            {a?.summary && <p className="mt-1.5 whitespace-pre-line text-[13px] leading-relaxed text-muted">{a.summary}</p>}
-          </div>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="card relative mt-5 flex flex-col items-center px-5 pb-5 pt-6 text-center">
+          {a?.by === 'ai' && (
+            <span className="absolute end-3.5 top-3.5 inline-flex items-center gap-1 rounded-full bg-gold-soft px-2.5 py-1 text-[11px] font-bold text-gold">
+              <Sparkles className="size-3.5" />
+              AI
+            </span>
+          )}
+          <ScoreRing score={score} size={96} stroke={7} />
+          <div className="mt-3 text-xl font-bold">{t.verdict[a?.verdict ?? 'fair']}</div>
+          {a?.summary && <p dir="auto" className="mt-2 whitespace-pre-line text-[14px] leading-relaxed text-muted">{a.summary}</p>}
         </motion.div>
       </section>
 
@@ -166,7 +166,7 @@ export default function JobDetail({ id }: { id: string }) {
             <h3 className="mb-2.5 text-sm font-bold text-ok">{t.job.why}</h3>
             <ul className="space-y-2">
               {a.reasons.map((r, i) => (
-                <motion.li key={r} initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }} className="flex gap-2 text-[14px] leading-relaxed">
+                <motion.li key={r} dir="auto" initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }} className="flex gap-2 text-[14px] leading-relaxed">
                   <Check className="mt-0.5 size-4 shrink-0 text-ok" />
                   {a.by === 'ai' ? r : humanize(r, t, lang)}
                 </motion.li>
@@ -179,7 +179,7 @@ export default function JobDetail({ id }: { id: string }) {
             <h3 className="mb-2.5 text-sm font-bold text-warn">{t.job.gaps}</h3>
             <ul className="space-y-2">
               {a.gaps.map((g) => (
-                <li key={g} className="flex gap-2 text-[14px] leading-relaxed">
+                <li key={g} dir="auto" className="flex gap-2 text-[14px] leading-relaxed">
                   <CircleAlert className="mt-0.5 size-4 shrink-0 text-warn" />
                   {a.by === 'ai' ? g : humanize(g, t, lang)}
                 </li>
@@ -383,7 +383,7 @@ export default function JobDetail({ id }: { id: string }) {
 
       <AnimatePresence>
         {pkg && (
-          <motion.div initial={{ y: 120 }} animate={{ y: 0 }} exit={{ y: 120 }} transition={{ type: 'spring', stiffness: 260, damping: 28 }} className="pb-safe glass fixed inset-x-0 bottom-0 z-30 border-t border-line px-4 pt-3">
+          <motion.div initial={{ y: 120 }} animate={{ y: 0 }} exit={{ y: 120 }} transition={{ type: 'spring', stiffness: 260, damping: 28 }} className="pb-safe fixed bg-surface inset-x-0 bottom-0 z-30 border-t border-line px-4 pt-3">
             <div className="mb-2 flex items-center gap-2 text-[12px] font-semibold text-muted">
               {channels.find((c) => c.id === pkg.channel)?.icon}
               <span className="truncate" dir="ltr">

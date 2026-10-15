@@ -85,6 +85,8 @@ export interface Job {
   language?: Lang;
   experience?: string;
   needsDetail?: boolean;
+  /** Set when the posting says it no longer accepts applications. */
+  closed?: boolean;
   fetchedAt: string;
 }
 

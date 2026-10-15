@@ -1,6 +1,6 @@
 import type { Job, JobSource } from '../types';
 import { attr, decodeEntities, htmlToText } from '../html';
-import { eachQuery, enrich, normalizeType, normalizeWorkplace, nowIso, parseJsonLdJob } from './util';
+import { eachQuery, enrich, normalizeType, normalizeWorkplace, nowIso, parseJsonLdJob, parsePosted } from './util';
 
 const BASE = 'https://qatar.tanqeeb.com';
 
@@ -17,8 +17,6 @@ function parse(html: string): Job[] {
     const title = attr(c, 'data-job-name');
     if (!id || !title || attr(c, 'data-job-closed') === '1') return [];
     const rel = attr(c, 'data-job-url') ?? '';
-    const date = attr(c, 'data-job-date');
-    const parsedDate = date ? new Date(date) : undefined;
     const logo = attr(c, 'data-job-logo');
     const job: Job = {
       id: `tanqeeb:${id}`,
@@ -31,7 +29,7 @@ function parse(html: string): Job[] {
       url: rel.startsWith('http') ? rel : BASE + rel,
       applyUrl: BASE + (attr(c, 'data-job-apply-url') ?? rel),
       description: fullDesc || [attr(c, 'data-job-categories'), attr(c, 'data-job-industry'), attr(c, 'data-job-education'), attr(c, 'data-job-local-only'), attr(c, 'data-job-gender') && `Gender: ${attr(c, 'data-job-gender')}`].filter(Boolean).join(' · '),
-      postedAt: parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate.toISOString() : undefined,
+      postedAt: parsePosted(attr(c, 'data-job-date')),
       employmentType: normalizeType(attr(c, 'data-job-type')),
       workplace: normalizeWorkplace(attr(c, 'data-job-workplace')),
       salary: attr(c, 'data-job-salary') || undefined,
@@ -50,11 +48,12 @@ export const tanqeeb: JobSource = {
   label: 'Tanqeeb',
   async search(ctx) {
     return eachQuery(ctx.queries, async (q) => {
-      const k = encodeURIComponent(q);
-      const first = parse(await ctx.fetchText(`${BASE}/jobs/search?keywords=${k}`));
+      // Newest first and restricted to Qatar (country id 183) so old or foreign posts never come back.
+      const url = (page: number) => `${BASE}/jobs/search?keywords=${encodeURIComponent(q)}&countries%5B%5D=183&order_by=most_recent&page_no=${page}`;
+      const first = parse(await ctx.fetchText(url(1)));
       if (first.length < 15) return first;
       try {
-        return [...first, ...parse(await ctx.fetchText(`${BASE}/jobs/search/page/2?keywords=${k}`))];
+        return [...first, ...parse(await ctx.fetchText(url(2)))];
       } catch {
         return first;
       }
@@ -63,6 +62,7 @@ export const tanqeeb: JobSource = {
   async detail(job, ctx) {
     const html = await ctx.fetchText(job.url);
     const ld = parseJsonLdJob(html);
-    return enrich({ ...job, ...ld, description: ld?.description || job.description, employmentType: job.employmentType ?? ld?.employmentType, needsDetail: false });
+    const closed = /no longer accepting|job (is )?closed|انتهى التقديم|الوظيفة مغلقة/i.test(html.slice(0, 200000)) || /validThrough"\s*:\s*"([^"]+)"/.test(html) && new Date(/validThrough"\s*:\s*"([^"]+)"/.exec(html)![1]).getTime() < Date.now();
+    return enrich({ ...job, ...ld, closed, postedAt: job.postedAt ?? ld?.postedAt, description: ld?.description || job.description, employmentType: job.employmentType ?? ld?.employmentType, needsDetail: false });
   },
 };

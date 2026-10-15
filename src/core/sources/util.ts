@@ -6,6 +6,40 @@ export function nowIso(): string {
   return new Date().toISOString();
 }
 
+/** Jobs older than this are never shown or prepared. */
+export const MAX_AGE_DAYS = 7;
+
+const UNIT_MS: Record<string, number> = { minute: 60e3, hour: 3600e3, day: 864e5, week: 6048e5, month: 2592e6 };
+
+/** Parses absolute dates and relative ones such as "3 hours ago", "yesterday", "قبل 2 يوم". */
+export function parsePosted(raw?: string | number | null): string | undefined {
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  const text = String(raw).trim().toLowerCase();
+  if (/^(just|today|now|new|اليوم|الآن|جديد)/.test(text)) return nowIso();
+  if (/^(yesterday|أمس|امس)/.test(text)) return new Date(Date.now() - 864e5).toISOString();
+  const rel = /(\d+|an?|one)\+?\s*(minute|min|hour|hr|day|week|month)s?\s*ago/.exec(text);
+  if (rel) {
+    const n = /^\d+$/.test(rel[1]) ? Number(rel[1]) : 1;
+    const unit = rel[2].startsWith('min') ? 'minute' : rel[2].startsWith('h') ? 'hour' : rel[2];
+    return new Date(Date.now() - n * UNIT_MS[unit]).toISOString();
+  }
+  const ar = /(\d+)\s*(دقيقة|دقائق|ساعة|ساعات|يوم|أيام|ايام|أسبوع|أسابيع|شهر|أشهر)/.exec(text);
+  if (ar) {
+    const u = ar[2];
+    const ms = /دقي|دقا/.test(u) ? UNIT_MS.minute : /ساع/.test(u) ? UNIT_MS.hour : /يوم|يام/.test(u) ? UNIT_MS.day : /سبو|سابيع/.test(u) ? UNIT_MS.week : UNIT_MS.month;
+    return new Date(Date.now() - Number(ar[1]) * ms).toISOString();
+  }
+  const d = typeof raw === 'number' ? new Date(raw) : new Date(String(raw));
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+}
+
+/** True when the job has a known posting date within the last MAX_AGE_DAYS days. */
+export function isFresh(job: Pick<Job, 'postedAt'>, days = MAX_AGE_DAYS): boolean {
+  if (!job.postedAt) return false;
+  const age = Date.now() - new Date(job.postedAt).getTime();
+  return age >= -864e5 && age <= days * 864e5;
+}
+
 export function normalizeType(raw?: string): string | undefined {
   if (!raw) return undefined;
   const l = raw.toLowerCase();
@@ -42,13 +76,17 @@ export function enrich(job: Job): Job {
 
 const ELSEWHERE = /saudi|ksa|riyadh|jeddah|dammam|\buae\b|dubai|abu dhabi|sharjah|kuwait|oman|muscat|bahrain|manama|egypt|cairo|jordan|amman|السعودية|الرياض|جدة|الإمارات|دبي|أبوظبي|الكويت|عمان|مسقط|البحرين|مصر|الأردن/i;
 
-/** Keeps Qatar-based (or open remote) jobs and drops ones whose title or location points to another country. */
+/** Keeps only jobs located in Qatar (remote roles too, but only when they are explicitly based in Qatar). */
 export function onlyQatar(jobs: Job[]): Job[] {
   return jobs.filter((j) => {
     const placedElsewhere = ELSEWHERE.test(`${j.title} ${j.location}`) && !/qatar|قطر/i.test(j.title);
-    if (j.workplace === 'remote') return !placedElsewhere || /remote/i.test(j.location);
-    return isInQatar(j.location) && !placedElsewhere;
+    return isInQatar(j.location) && !placedElsewhere && !/worldwide|anywhere|global/i.test(j.location);
   });
+}
+
+/** The listing rules: in Qatar, posted in the last 7 days, still accepting applications. */
+export function listable(jobs: Job[]): Job[] {
+  return onlyQatar(jobs).filter((j) => !j.closed && isFresh(j));
 }
 
 /** Parses a schema.org JobPosting embedded as JSON-LD, which many job pages include. */

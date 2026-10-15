@@ -81,12 +81,12 @@ export default function ProfilePage() {
         <div className="card divide-y divide-[var(--line)] overflow-hidden">
           {rows.map(({ icon: Icon, label, section, value }) => (
             <button key={label} onClick={() => push({ name: 'editProfile', section })} className="flex w-full items-center gap-3 px-4 py-4 text-start active:bg-surface-2">
-              <span className="grid size-9 place-items-center rounded-xl bg-gold-soft text-gold">
-                <Icon className="size-[18px]" />
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-gold-soft text-gold">
+                <Icon className="size-5 shrink-0" />
               </span>
-              <span className="flex-1 font-semibold">{label}</span>
-              <span className="max-w-[45%] truncate text-[13px] text-muted">{value}</span>
-              <Chevron className="size-4 text-muted" />
+              <span className="min-w-0 flex-1 truncate font-semibold">{label}</span>
+              <span className="max-w-[38%] shrink truncate text-[13px] text-muted">{value}</span>
+              <Chevron className="size-4 shrink-0 text-muted" />
             </button>
           ))}
         </div>

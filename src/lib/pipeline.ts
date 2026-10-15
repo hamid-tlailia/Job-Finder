@@ -1,6 +1,6 @@
 import type { Job, SourceContext } from '../core/types';
 import { SOURCES } from '../core/sources';
-import { onlyQatar, settle } from '../core/sources/util';
+import { listable, settle } from '../core/sources/util';
 import { buildQueries, dedupeKey, localAnalysis, localScore } from '../core/match';
 import { templatePackage } from '../core/template';
 import { analyzeJob, generatePackage } from '../ai/claude';
@@ -91,9 +91,12 @@ export async function runSearch(): Promise<{ found: number; fresh: number; ready
   all.push(...(await drainBackground()));
   const fresh: Job[] = [];
   const st = useStore.getState();
-  for (const j of onlyQatar(all)) {
+  const seenNow = new Set<string>(); // the same post often arrives from two sources in one run
+  for (const j of listable(all)) {
     const key = dedupeKey(j);
-    if (st.jobs[j.id] || st.seenKeys[key]) continue;
+    if (st.jobs[j.id] || st.seenKeys[key] || seenNow.has(key) || seenNow.has(j.id)) continue;
+    seenNow.add(key);
+    seenNow.add(j.id);
     st.markSeen(key, j.id);
     fresh.push(j);
   }
@@ -118,6 +121,10 @@ export async function runSearch(): Promise<{ found: number; fresh: number; ready
       try {
         let job = await withDetail(j, c);
         useStore.getState().upsertJob(job);
+        if (job.closed) {
+          useStore.getState().upsertMatch(j.id, { status: 'dismissed' });
+          return;
+        }
         let score = localScore(job, profile).score;
         if (settings.apiKey) {
           const r = await analyzeJob({ apiKey: settings.apiKey, model: settings.model }, profile, job, settings.uiLang);

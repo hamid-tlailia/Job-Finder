@@ -37,9 +37,9 @@ export const linkedin: JobSource = {
   id: 'linkedin',
   label: 'LinkedIn',
   async search(ctx) {
-    // One page (25 newest of the past two weeks) per query keeps LinkedIn from rate-limiting us.
+    // One page (25 newest of the past week) per query keeps LinkedIn from rate-limiting us.
     return eachQuery(ctx.queries, async (q) => {
-      const url = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${encodeURIComponent(q)}&location=Qatar&f_TPR=r1209600&sortBy=DD&start=0`;
+      const url = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${encodeURIComponent(q)}&location=Qatar&f_TPR=r604800&sortBy=DD&start=0`;
       return parseCards(await ctx.fetchText(url));
     });
   },
@@ -51,6 +51,7 @@ export const linkedin: JobSource = {
     const type = criteria.find(([k]) => /employment type/i.test(k))?.[1];
     const level = criteria.find(([k]) => /seniority/i.test(k))?.[1];
     const applyUrl = /<code id="applyUrl"[^>]*><!--"([^"]+)"/.exec(html)?.[1];
-    return enrich({ ...job, description: htmlToText(desc), employmentType: normalizeType(type), experience: level, applyUrl: applyUrl ? decodeURIComponent(applyUrl.replace(/.*url=/, '')) : undefined, needsDetail: false });
+    const closed = /closed-job|No longer accepting applications/i.test(html);
+    return enrich({ ...job, closed, description: htmlToText(desc), employmentType: normalizeType(type), experience: level, applyUrl: applyUrl ? decodeURIComponent(applyUrl.replace(/.*url=/, '')) : undefined, needsDetail: false });
   },
 };

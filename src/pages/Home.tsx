@@ -10,6 +10,7 @@ import { useNav } from '../ui/nav';
 import { runSearch } from '../lib/pipeline';
 import { EXPLORE_LINKS } from '../core/sources';
 import { buildQueries } from '../core/match';
+import { listable } from '../core/sources/util';
 
 type Filter = 'all' | 'ready' | 'new' | 'saved';
 
@@ -21,7 +22,9 @@ export default function Home() {
   const [showErrors, setShowErrors] = useState(false);
 
   const list = useMemo(() => {
-    const all = Object.values(matches).filter((m) => jobs[m.jobId] && m.status !== 'dismissed' && !['applied', 'interview', 'offer', 'rejected'].includes(m.status));
+    const all = Object.values(matches).filter(
+      (m) => jobs[m.jobId] && m.status !== 'dismissed' && !['applied', 'interview', 'offer', 'rejected'].includes(m.status) && (m.status !== 'new' || listable([jobs[m.jobId]]).length > 0),
+    );
     const filtered = all.filter((m) => filter === 'all' || (filter === 'new' ? m.status === 'new' : m.status === filter));
     return filtered.sort((a, b) => scoreOf(b) - scoreOf(a)).slice(0, 120);
   }, [matches, jobs, filter]);
@@ -76,16 +79,16 @@ export default function Home() {
               ['applied', counts.applied, 'text-ok'],
             ] as const
           ).map(([k, n, c], i) => (
-            <motion.div key={k} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 * i }} className="glass rounded-2xl border border-line px-3 py-3">
-              <motion.div key={n} initial={{ scale: 1.3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className={`text-2xl font-extrabold tabular-nums ${c}`}>
+            <motion.div key={k} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 * i }} className="flex flex-col items-center justify-center rounded-2xl border border-line bg-surface px-2 py-4 text-center">
+              <motion.div key={n} initial={{ scale: 1.3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className={`text-[2.6rem] font-extrabold leading-none tabular-nums ${c}`}>
                 {n}
               </motion.div>
-              <div className="text-[12px] font-semibold text-muted">{t.home[k]}</div>
+              <div className="mt-2 text-[13px] font-semibold text-muted">{t.home[k]}</div>
             </motion.div>
           ))}
         </div>
 
-        <div className="mt-4 overflow-hidden rounded-2xl border border-line bg-surface/80">
+        <div className="mt-4 overflow-hidden rounded-2xl border border-line bg-surface">
           <div className="flex items-center gap-3 p-3">
             <motion.div animate={run.running ? { rotate: 360 } : { rotate: 0 }} transition={run.running ? { repeat: Infinity, duration: 2.2, ease: 'linear' } : {}} className="grid size-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent">
               <Radar className="size-5" />
@@ -100,9 +103,6 @@ export default function Home() {
                 </button>
               )}
             </div>
-            <Button size="sm" loading={run.running} onClick={search} icon={!run.running ? <RefreshCw className="size-4" /> : undefined}>
-              {run.running ? '' : t.home.run}
-            </Button>
           </div>
           <AnimatePresence>
             {run.running && (
@@ -134,7 +134,7 @@ export default function Home() {
           </button>
         )}
 
-        <div className="no-scrollbar sticky top-0 z-10 -mx-4 mt-3 flex gap-2 overflow-x-auto bg-bg/85 px-4 py-3 backdrop-blur-md">
+        <div className="no-scrollbar sticky z-10 -mx-4 mt-3 flex gap-2 overflow-x-auto bg-bg px-4 py-3" style={{ top: 'var(--sat)' }}>
           {(['all', 'ready', 'new', 'saved'] as Filter[]).map((k) => (
             <button key={k} onClick={() => setFilter(k)} className={`relative h-9 shrink-0 rounded-full px-4 text-[13px] font-semibold transition-colors ${filter === k ? 'text-white' : 'border border-line bg-surface text-muted'}`}>
               {filter === k && <motion.span layoutId="home-filter" className="absolute inset-0 rounded-full bg-ink" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
@@ -155,12 +155,11 @@ export default function Home() {
             }
           />
         ) : (
-          <motion.div layout className="space-y-3">
-            <AnimatePresence initial={false}>
-              {list.map((m, i) => (
-                <JobCard key={m.jobId} job={jobs[m.jobId]} match={m} index={i} />
-              ))}
-            </AnimatePresence>
+          // Keyed by filter: switching tabs swaps the list at once instead of waiting for every card's exit animation.
+          <motion.div key={filter} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.16 }} className="space-y-3">
+            {list.map((m, i) => (
+              <JobCard key={m.jobId} job={jobs[m.jobId]} match={m} index={i} />
+            ))}
           </motion.div>
         )}
 
@@ -174,6 +173,25 @@ export default function Home() {
             </motion.button>
           ))}
         </div>
+      </div>
+
+      {/* Always-visible search action, floating above the tab bar. */}
+      <div className="pointer-events-none fixed inset-x-0 z-20 flex justify-center px-5" style={{ bottom: 'calc(var(--sab) + 86px)' }}>
+        <motion.button
+          initial={{ y: 40, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 24, delay: 0.2 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={search}
+          disabled={run.running}
+          className="pointer-events-auto relative flex h-14 min-w-[13rem] items-center justify-center gap-2.5 overflow-hidden rounded-full bg-accent px-7 text-[15px] font-bold text-white shadow-[0_14px_32px_-10px_var(--glow),0_4px_12px_rgba(0,0,0,0.25)]"
+        >
+          {run.running && <motion.span className="absolute inset-y-0 start-0 bg-white/15" animate={{ width: `${Math.max(8, pct)}%` }} />}
+          <motion.span animate={run.running ? { rotate: 360 } : { rotate: 0 }} transition={run.running ? { repeat: Infinity, duration: 1.1, ease: 'linear' } : {}} className="relative">
+            <RefreshCw className="size-5" />
+          </motion.span>
+          <span className="relative">{run.running ? `${t.home.steps[run.step as keyof typeof t.home.steps] ?? t.home.running}${run.total ? ` · ${run.done}/${run.total}` : ''}` : t.home.run}</span>
+        </motion.button>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 /* Runs in Capacitor Background Runner (no DOM, no web view): periodic job checks while the app is closed. */
 import type { Job, Profile, SourceContext } from '../core/types';
 import { SOURCES } from '../core/sources';
-import { onlyQatar } from '../core/sources/util';
+import { listable } from '../core/sources/util';
 import { buildQueries, dedupeKey, localScore } from '../core/match';
 import { BROWSER_UA } from '../core/allowlist';
 
@@ -65,7 +65,7 @@ addEventListener('checkJobs', async (resolve) => {
     }
     const threshold = Math.max(35, cfg.profile.prefs.minScore - 15);
     const fresh: Job[] = [];
-    for (const j of onlyQatar(found)) {
+    for (const j of listable(found)) {
       const key = dedupeKey(j);
       if (seen.has(key) || seen.has(j.id)) continue;
       seen.add(key);

@@ -29,6 +29,10 @@
 }
 
 :root {
+  /* Capacitor (insetsHandling: css) injects --safe-area-inset-*; browsers fall back to env(). */
+  --sat: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --sab: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --pill: #f1dfe5;
   --bg: #f7f3ec;
   --surface: #fffdf9;
   --surface-2: #f1ebe1;
@@ -46,6 +50,7 @@
 }
 
 .dark {
+  --pill: #3b1d29;
   --bg: #0d0a0c;
   --surface: #17121a;
   --surface-2: #211a24;
@@ -90,10 +95,20 @@ body {
 }
 
 .pt-safe {
-  padding-top: max(env(safe-area-inset-top), 12px);
+  padding-top: calc(var(--sat) + 10px);
 }
 .pb-safe {
-  padding-bottom: max(env(safe-area-inset-bottom), 10px);
+  padding-bottom: calc(var(--sab) + 8px);
+}
+/* Solid strip behind the Android status bar so scrolled content never shows under the clock. */
+.status-scrim {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  height: var(--sat);
+  background: var(--bg);
+  z-index: 55;
+  pointer-events: none;
 }
 
 .glass {

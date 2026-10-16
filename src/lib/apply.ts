@@ -3,7 +3,7 @@ import { Clipboard } from '@capacitor/clipboard';
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import type { ApplicationPackage, Channel, Job, Profile } from '../core/types';
-import { buildCvPdf, buildLetterPdf } from './pdf';
+import { buildApplicationPdf, buildCvPdf, buildLetterPdf } from './pdf';
 import { loadFonts } from './fonts';
 import { isNative } from './http';
 import { Composer } from './composer';
@@ -17,7 +17,9 @@ export async function buildPdfs(p: Profile, job: Job, pkg: ApplicationPackage) {
   const fonts = await loadFonts();
   const cv = buildCvPdf(pkg.cv, fonts, pkg.template ?? 'classic');
   const letter = buildLetterPdf(pkg.cv, pkg.coverLetter, { company: job.company, jobTitle: job.title }, fonts, pkg.template ?? 'classic');
+  const both = buildApplicationPdf(pkg.cv, pkg.coverLetter, { company: job.company, jobTitle: job.title }, fonts, pkg.template ?? 'classic');
   return {
+    both: { name: fileBase(p, job, pkg.language === 'ar' ? 'طلب_توظيف' : 'Application'), data: both.output('datauristring').split(',')[1], blob: both.output('blob') },
     cv: { name: fileBase(p, job, pkg.language === 'ar' ? 'سيرة' : 'CV'), data: cv.output('datauristring').split(',')[1], blob: cv.output('blob') },
     letter: { name: fileBase(p, job, pkg.language === 'ar' ? 'خطاب' : 'Cover_Letter'), data: letter.output('datauristring').split(',')[1], blob: letter.output('blob') },
   };
@@ -87,12 +89,12 @@ export async function sendApplication(p: Profile, job: Job, pkg: ApplicationPack
     // WhatsApp often drops the text when documents are shared, so it is also copied for a quick paste.
     await Clipboard.write({ string: pkg.whatsappMessage });
     if (isNative) {
-      const atts = [await writeCache(files.cv.name, files.cv.data), await writeCache(files.letter.name, files.letter.data)];
-      const r = await Composer.whatsapp({ phone, text: pkg.whatsappMessage, attachments: atts });
+      // One file only: with several, WhatsApp ignores the number and shows its contact picker.
+      const att = await writeCache(files.both.name, files.both.data);
+      const r = await Composer.whatsapp({ phone, text: pkg.whatsappMessage, attachments: [att] });
       if (!r.opened) await Browser.open({ url: `https://wa.me/${phone}?text=${encodeURIComponent(pkg.whatsappMessage)}` });
     } else {
-      download(files.cv.name, files.cv.blob);
-      download(files.letter.name, files.letter.blob);
+      download(files.both.name, files.both.blob);
       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(pkg.whatsappMessage)}`, '_blank');
     }
     return 'whatsapp';

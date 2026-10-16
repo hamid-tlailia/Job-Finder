@@ -488,9 +488,27 @@ export interface LetterMeta {
 }
 
 export function buildLetterPdf(cv: TailoredCv, body: string, meta: LetterMeta, fonts: PdfFonts, template: CvTemplate = 'classic'): jsPDF {
+  const pg = new Page(fonts, cv.language, template);
+  writeLetter(pg, cv, body, meta, template);
+  pg.finish(cv.name, cv.language);
+  return pg.doc;
+}
+
+/** Cover letter followed by the CV in one file, for channels that take a single attachment (WhatsApp). */
+export function buildApplicationPdf(cv: TailoredCv, body: string, meta: LetterMeta, fonts: PdfFonts, template: CvTemplate = 'classic'): jsPDF {
+  const pg = new Page(fonts, cv.language, template);
+  writeLetter(pg, cv, body, meta, template);
+  pg.doc.addPage();
+  pg.y = pg.top;
+  if (template === 'executive') buildExecutive(cv, pg);
+  else buildClassic(cv, pg);
+  pg.finish(cv.name, cv.language);
+  return pg.doc;
+}
+
+function writeLetter(pg: Page, cv: TailoredCv, body: string, meta: LetterMeta, template: CvTemplate): void {
   const lang = cv.language;
   const t = L[lang];
-  const pg = new Page(fonts, lang, template);
   if (template === 'executive') pg.band(cv.name, cv.headline, cv.contact);
   else pg.header(cv.name, cv.headline, cv.contact);
   pg.y += 6;
@@ -510,7 +528,4 @@ export function buildLetterPdf(cv: TailoredCv, body: string, meta: LetterMeta, f
     for (const line of para.split('\n')) pg.para(line, 10.6, { factor: 1.55 });
     pg.y += 3.2;
   }
-
-  pg.finish(cv.name, lang);
-  return pg.doc;
 }

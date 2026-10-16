@@ -42,12 +42,13 @@ export function AiTools() {
         {busy ? t.aiTools.polishing : t.aiTools.polish}
       </Button>
       <div className="flex gap-2">
-        <Button variant="outline" className="flex-1" icon={<Download className="size-4" />} onClick={() => setDl(true)}>
+        <Button variant="outline" className="min-w-0 flex-1 basis-0 whitespace-nowrap" icon={<Download className="size-4" />} onClick={() => setDl(true)}>
           {t.aiTools.download}
         </Button>
         {backup && (
           <Button
-            variant="ghost"
+            variant="outline"
+            className="min-w-0 flex-1 basis-0 whitespace-nowrap"
             icon={<Undo2 className="size-4" />}
             onClick={() => {
               undoPolish();

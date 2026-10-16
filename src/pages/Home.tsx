@@ -8,9 +8,9 @@ import { useT } from '../i18n';
 import { Button, Empty, Logo, SectionTitle, toast } from '../ui/kit';
 import { JobCard } from '../ui/JobCard';
 import { useNav } from '../ui/nav';
-import { runSearch } from '../lib/pipeline';
+import { runSearch, searchKey } from '../lib/pipeline';
 import { EXPLORE_LINKS } from '../core/sources';
-import { buildQueries } from '../core/match';
+import { buildQueries, localScore, trackProfile } from '../core/match';
 import { listable } from '../core/sources/util';
 import { avoidedIndustry } from '../core/industries';
 
@@ -28,13 +28,28 @@ export default function Home() {
   const [trackFilter, setTrackFilter] = useState<string>('all');
   const tracks = profile.tracks ?? [];
 
+  const visible = useMemo(
+    () =>
+      Object.values(matches).filter(
+        (m) => jobs[m.jobId] && m.status !== 'dismissed' && !['applied', 'interview', 'offer', 'rejected'].includes(m.status) && (m.status !== 'new' || (listable([jobs[m.jobId]]).length > 0 && !avoidedIndustry(jobs[m.jobId], profile.prefs.avoidIndustries))),
+      ),
+    [matches, jobs, profile.prefs.avoidIndustries],
+  );
+
+  // A job belongs to every track it fits, not only to the one it was prepared for.
+  const fits = useMemo(() => {
+    const out: Record<string, Set<string>> = {};
+    for (const tr of profile.tracks ?? []) {
+      const viewed = trackProfile(profile, tr);
+      out[tr.id] = new Set(visible.filter((m) => m.trackId === tr.id || !localScore(jobs[m.jobId], viewed).blocked).map((m) => m.jobId));
+    }
+    return out;
+  }, [profile, visible, jobs]);
+
   const list = useMemo(() => {
-    const all = Object.values(matches).filter(
-      (m) => jobs[m.jobId] && m.status !== 'dismissed' && !['applied', 'interview', 'offer', 'rejected'].includes(m.status) && (m.status !== 'new' || (listable([jobs[m.jobId]]).length > 0 && !avoidedIndustry(jobs[m.jobId], profile.prefs.avoidIndustries))),
-    );
-    const filtered = all.filter((m) => (filter === 'all' || (filter === 'new' ? m.status === 'new' : m.status === filter)) && (trackFilter === 'all' || m.trackId === trackFilter));
+    const filtered = visible.filter((m) => (filter === 'all' || (filter === 'new' ? m.status === 'new' : m.status === filter)) && (trackFilter === 'all' || fits[trackFilter]?.has(m.jobId)));
     return filtered.sort((a, b) => scoreOf(b, jobs[b.jobId]) - scoreOf(a, jobs[a.jobId])).slice(0, 120);
-  }, [matches, jobs, filter, trackFilter, profile.prefs.avoidIndustries]);
+  }, [visible, jobs, filter, trackFilter, fits]);
 
   const counts = useMemo(() => {
     const v = Object.values(matches);
@@ -58,7 +73,8 @@ export default function Home() {
     const id = setInterval(() => setNow(Date.now()), 15000);
     return () => clearInterval(id);
   }, []);
-  const waitMin = lastRun ? Math.max(0, Math.ceil((REFRESH_GAP_MS - (now - new Date(lastRun).getTime())) / 60000)) : 0;
+  const searchChanged = settings.lastSearchKey !== undefined && settings.lastSearchKey !== searchKey(profile);
+  const waitMin = lastRun && !searchChanged ? Math.max(0, Math.ceil((REFRESH_GAP_MS - (now - new Date(lastRun).getTime())) / 60000)) : 0;
 
   const search = async () => {
     if (waitMin > 0) return;
@@ -176,6 +192,7 @@ export default function Home() {
                 className={`h-8 shrink-0 rounded-xl px-3.5 text-[12.5px] font-bold transition-colors ${trackFilter === tr.id ? 'bg-gold text-[#2a1a10]' : 'border border-line bg-surface text-muted'}`}
               >
                 {tr.name}
+                {tr.id !== 'all' && <span className="ms-1.5 tabular-nums opacity-70">{fits[tr.id]?.size ?? 0}</span>}
               </button>
             ))}
           </div>

@@ -40,10 +40,25 @@ export const linkedin: JobSource = {
   id: 'linkedin',
   label: 'LinkedIn',
   async search(ctx) {
-    // One page (25 newest of the past week) per query keeps LinkedIn from rate-limiting us.
+    // LinkedIn serves 10 cards per page. Broad field queries ("sales") are paged through the whole week;
+    // specific titles get one page, since the broad pages already hold most of their results.
+    const deep = new Set(ctx.deep ?? []);
     return eachQuery(ctx.queries, async (q) => {
-      const url = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${encodeURIComponent(q)}&location=Qatar&f_TPR=r604800&sortBy=DD&start=0`;
-      return parseCards(await ctx.fetchText(url, { headers: LI_HEADERS }));
+      const pages = deep.has(q) ? 6 : 1;
+      const out: Job[] = [];
+      for (let page = 0; page < pages; page++) {
+        const url = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${encodeURIComponent(q)}&location=Qatar&f_TPR=r604800&sortBy=DD&start=${page * 10}`;
+        let cards: Job[];
+        try {
+          cards = parseCards(await ctx.fetchText(url, { headers: LI_HEADERS }));
+        } catch (e) {
+          if (!out.length) throw e;
+          break; // keep the pages already read when a later one is rate-limited
+        }
+        out.push(...cards);
+        if (cards.length < 10) break;
+      }
+      return out;
     });
   },
   async detail(job, ctx) {

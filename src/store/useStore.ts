@@ -24,6 +24,8 @@ export interface Settings {
   /** Cheaper model for high-volume job analysis; the main model writes CVs and letters. */
   fastModel: string;
   lastGoogleRun?: string;
+  /** Queries of the last search; a changed profile or track may search again without waiting. */
+  lastSearchKey?: string;
 }
 
 export interface RunState {
@@ -149,7 +151,13 @@ export const useStore = create<State>()(
     }),
     {
       name: 'job-finder',
-      version: 1,
+      version: 2,
+      // v2: earlier versions also remembered unrelated jobs as seen, which hid them from tracks added later.
+      migrate: (persisted, version) => {
+        const p = persisted as Partial<State>;
+        if (version < 2 && p) p.seenKeys = Object.fromEntries(Object.entries(p.seenKeys ?? {}).filter(([, id]) => p.jobs?.[id]));
+        return p as State;
+      },
       storage: createJSONStorage(() => localStorage),
       partialize: ({ run: _run, reviewing: _reviewing, ...rest }) => rest,
       merge: (persisted, current) => {

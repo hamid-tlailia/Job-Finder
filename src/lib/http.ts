@@ -6,7 +6,7 @@ export type FetchInit = { method?: string; headers?: Record<string, string>; bod
 export const isNative = Capacitor.isNativePlatform();
 
 /** Minimum spacing between requests to the same host — LinkedIn answers bursts with HTTP 429. */
-const MIN_GAP_MS: Record<string, number> = { 'www.linkedin.com': 2500, 'qatar.tanqeeb.com': 700 };
+const MIN_GAP_MS: Record<string, number> = { 'www.linkedin.com': 2000, 'qatar.tanqeeb.com': 700 };
 /** SerpApi runs a live Google search per call and regularly needs 20–40 s. */
 const READ_TIMEOUT_MS: Record<string, number> = { 'serpapi.com': 75000, 'jooble.org': 45000 };
 /** After a 429 the host is left alone for this long instead of being hammered again. */

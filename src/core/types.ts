@@ -182,6 +182,8 @@ export interface MatchRecord {
 
 export interface SourceContext {
   queries: string[];
+  /** Broad field queries (e.g. "sales") that sources page through further than the specific titles. */
+  deep?: string[];
   profile: Profile;
   keys: { jooble?: string; serpapi?: string };
   fetchText: (url: string, init?: { method?: string; headers?: Record<string, string>; body?: string }) => Promise<string>;

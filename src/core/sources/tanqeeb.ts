@@ -1,6 +1,6 @@
 import type { Job, JobSource } from '../types';
 import { attr, decodeEntities, htmlToText } from '../html';
-import { eachQuery, enrich, normalizeType, normalizeWorkplace, nowIso, parseJsonLdJob, parsePosted } from './util';
+import { eachQuery, enrich, isFresh, normalizeType, normalizeWorkplace, nowIso, parseJsonLdJob, parsePosted } from './util';
 
 const BASE = 'https://qatar.tanqeeb.com';
 
@@ -47,16 +47,22 @@ export const tanqeeb: JobSource = {
   id: 'tanqeeb',
   label: 'Tanqeeb',
   async search(ctx) {
+    const deep = new Set(ctx.deep ?? []);
     return eachQuery(ctx.queries, async (q) => {
       // Newest first and restricted to Qatar (country id 183) so old or foreign posts never come back.
       const url = (page: number) => `${BASE}/jobs/search?keywords=${encodeURIComponent(q)}&countries%5B%5D=183&order_by=most_recent&page_no=${page}`;
-      const first = parse(await ctx.fetchText(url(1)));
-      if (first.length < 15) return first;
-      try {
-        return [...first, ...parse(await ctx.fetchText(url(2)))];
-      } catch {
-        return first;
+      const out = parse(await ctx.fetchText(url(1)));
+      let last = out;
+      // Broad field queries are read until the posts get older than a week; specific titles get two pages.
+      for (let page = 2; page <= (deep.has(q) ? 5 : 2) && last.length >= 15 && last.some((j) => isFresh(j)); page++) {
+        try {
+          last = parse(await ctx.fetchText(url(page)));
+        } catch {
+          break;
+        }
+        out.push(...last);
       }
+      return out;
     });
   },
   async detail(job, ctx) {

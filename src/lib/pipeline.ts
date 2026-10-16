@@ -1,7 +1,7 @@
 import type { Job, SourceContext } from '../core/types';
 import { SOURCES } from '../core/sources';
 import { listable, settle } from '../core/sources/util';
-import { bestTrack, buildQueries, dedupeKey, isStrongMatch, localAnalysis, prepareThreshold, trackProfile } from '../core/match';
+import { bestTrack, buildQueries, deepQueries, dedupeKey, isStrongMatch, localAnalysis, prepareThreshold, trackProfile } from '../core/match';
 import type { Analysis, Profile } from '../core/types';
 import { templatePackage } from '../core/template';
 import { analyzeJob, generatePackage } from '../ai/claude';
@@ -12,7 +12,7 @@ import { drainBackground, syncBackground } from './background';
 
 function ctx(): SourceContext {
   const { profile, settings } = useStore.getState();
-  return { queries: buildQueries(profile), profile, keys: { jooble: settings.joobleKey, serpapi: settings.serpapiKey }, fetchText };
+  return { queries: buildQueries(profile), deep: deepQueries(profile), profile, keys: { jooble: settings.joobleKey, serpapi: settings.serpapiKey }, fetchText };
 }
 
 async function withDetail(job: Job, c: SourceContext): Promise<Job> {
@@ -76,23 +76,22 @@ async function processJobs(all: Job[], c: SourceContext, errors: string[]): Prom
   const fresh: Job[] = [];
   const st = useStore.getState();
   const seenNow = new Set<string>(); // the same post often arrives from two sources in one run
+  useStore.getState().setRun({ step: 'score', done: 0, total: all.length });
+  const scored: { j: Job; ls: ReturnType<typeof bestTrack>['score']; trackId?: string }[] = [];
   for (const j of listable(all)) {
     const key = dedupeKey(j);
     if (st.jobs[j.id] || st.seenKeys[key] || seenNow.has(key) || seenNow.has(j.id)) continue;
     seenNow.add(key);
     seenNow.add(j.id);
+    const b = bestTrack(j, profile);
+    // Unrelated jobs are not remembered as seen: they are scored again next time, so a track added
+    // later (e.g. "sales") still finds the posts an earlier search skipped.
+    if (b.score.blocked) continue;
     st.markSeen(key, j.id);
     fresh.push(j);
+    scored.push({ j, ls: b.score, trackId: b.trackId });
   }
-
-  useStore.getState().setRun({ step: 'score', done: 0, total: fresh.length });
-  const scored = fresh
-    .map((j) => {
-      const b = bestTrack(j, profile);
-      return { j, ls: b.score, trackId: b.trackId };
-    })
-    .filter((x) => !x.ls.blocked)
-    .sort((a, b) => b.ls.score - a.ls.score);
+  scored.sort((a, b) => b.ls.score - a.ls.score);
   for (const { j, ls, trackId } of scored) {
     st.upsertJob(j);
     st.upsertMatch(j.id, { localScore: ls.score, trackId, analysis: localAnalysis(j, profile, ls) });
@@ -167,6 +166,11 @@ export async function ingestBackground(): Promise<number> {
   }
 }
 
+/** Identifies what a search looks for, so a changed profile can refresh before the usual wait. */
+export function searchKey(profile: Profile): string {
+  return buildQueries(profile).join('|');
+}
+
 /** Fetches every enabled source, scores new jobs and auto-prepares the best ones. */
 export async function runSearch(): Promise<{ found: number; fresh: number; ready: number }> {
   const store = useStore.getState();
@@ -184,6 +188,7 @@ export async function runSearch(): Promise<{ found: number; fresh: number; ready
       (s.id !== 'google' || googleDue),
   );
   if (sources.some((s) => s.id === 'google')) store.setSettings({ lastGoogleRun: new Date().toISOString() });
+  store.setSettings({ lastSearchKey: searchKey(profile) });
   store.setRun({ running: true, step: 'fetch', done: 0, total: sources.length, errors: [] });
 
   const all: Job[] = [];

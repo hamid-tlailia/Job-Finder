@@ -2,7 +2,7 @@
 import type { Job, Profile, SourceContext } from '../core/types';
 import { SOURCES } from '../core/sources';
 import { listable } from '../core/sources/util';
-import { bestTrack, buildQueries, dedupeKey, prepareThreshold } from '../core/match';
+import { bestTrack, buildQueries, deepQueries, dedupeKey, prepareThreshold } from '../core/match';
 import { BROWSER_UA } from '../core/allowlist';
 
 declare const CapacitorKV: { get(k: string): { value: string } | null | undefined; set(k: string, v: string): void };
@@ -49,8 +49,10 @@ addEventListener('checkJobs', async (resolve) => {
   try {
     const cfg = kvGet<Config | null>('config', null);
     if (!cfg || !cfg.profile.targetTitles.length) return resolve();
-    const seen = new Set<string>([...cfg.known, ...kvGet<string[]>('seen', [])]);
-    const ctx: SourceContext = { queries: buildQueries(cfg.profile).slice(0, 3), profile: cfg.profile, keys: cfg.keys, fetchText };
+    const seen = new Set<string>([...cfg.known, ...kvGet<string[]>('seen2', [])]);
+    const deep = deepQueries(cfg.profile);
+    // The broad field of every track plus a few specific titles, paged less than in the foreground.
+    const ctx: SourceContext = { queries: [...new Set([...deep, ...buildQueries(cfg.profile).slice(0, 6)])].slice(0, 8), deep, profile: cfg.profile, keys: cfg.keys, fetchText };
     const remoteOk = cfg.profile.prefs.workplaces.includes('remote');
     const found: Job[] = [];
     for (const s of SOURCES) {
@@ -68,11 +70,13 @@ addEventListener('checkJobs', async (resolve) => {
     for (const j of listable(found)) {
       const key = dedupeKey(j);
       if (seen.has(key) || seen.has(j.id)) continue;
-      seen.add(key);
       const ls = bestTrack(j, cfg.profile).score;
-      if (!ls.blocked && ls.score >= threshold) fresh.push(j);
+      // Only reported jobs count as seen, so weaker ones are re-checked when the profile or tracks change.
+      if (ls.blocked || ls.score < threshold) continue;
+      seen.add(key);
+      fresh.push(j);
     }
-    CapacitorKV.set('seen', JSON.stringify([...seen].slice(-1500)));
+    CapacitorKV.set('seen2', JSON.stringify([...seen].slice(-1500)));
     if (fresh.length) {
       const pending = kvGet<Job[]>('pending', []);
       CapacitorKV.set('pending', JSON.stringify([...pending, ...fresh].slice(-60)));

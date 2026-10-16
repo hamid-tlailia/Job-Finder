@@ -161,6 +161,11 @@ export default function Settings() {
               <Slider min={2} max={20} value={settings.maxAiPerRun} onChange={(v) => setSettings({ maxAiPerRun: v })} />
             </Field>
           </div>
+          <div className="py-3">
+            <Field label={`${t.settings.maxPrepare}: ${settings.maxPreparePerRun ?? 3}`} hint={t.settings.maxPrepareHint}>
+              <Slider min={1} max={10} value={settings.maxPreparePerRun ?? 3} onChange={(v) => setSettings({ maxPreparePerRun: v })} />
+            </Field>
+          </div>
         </div>
 
         <SectionTitle>{t.settings.bgTitle}</SectionTitle>

@@ -18,6 +18,8 @@ export interface Settings {
   sources: Record<string, boolean>;
   autoPrepare: boolean;
   maxAiPerRun: number;
+  /** Applications written automatically per search; the rest wait for a tap on "Prepare". */
+  maxPreparePerRun: number;
   notifications: boolean;
   backgroundMinutes: number;
   cvTemplate: 'auto' | CvTemplate;
@@ -73,12 +75,13 @@ const defaultSettings: Settings = {
   uiLang: 'ar',
   theme: 'system',
   apiKey: '',
-  model: 'claude-opus-5-5',
+  model: 'claude-sonnet-5-5',
   joobleKey: '',
   serpapiKey: '',
   sources: { linkedin: true, tanqeeb: true, workable: true, smartrecruiters: true, google: true, jooble: true, himalayas: true, remotive: true },
   autoPrepare: true,
   maxAiPerRun: 8,
+  maxPreparePerRun: 3,
   notifications: true,
   backgroundMinutes: 60,
   cvTemplate: 'auto',
@@ -151,11 +154,13 @@ export const useStore = create<State>()(
     }),
     {
       name: 'job-finder',
-      version: 2,
+      version: 3,
       // v2: earlier versions also remembered unrelated jobs as seen, which hid them from tracks added later.
+      // v3: applications are written with Sonnet 5.5 by default (about half the cost of Opus); Opus stays selectable.
       migrate: (persisted, version) => {
         const p = persisted as Partial<State>;
         if (version < 2 && p) p.seenKeys = Object.fromEntries(Object.entries(p.seenKeys ?? {}).filter(([, id]) => p.jobs?.[id]));
+        if (version < 3 && p?.settings?.model === 'claude-opus-5-5') p.settings = { ...p.settings, model: 'claude-sonnet-5-5' };
         return p as State;
       },
       storage: createJSONStorage(() => localStorage),

@@ -23,13 +23,23 @@ function client(cfg: AiConfig): Anthropic {
 const SYSTEM = `You are a senior recruitment consultant and career coach specialised in the Qatar job market (Doha, Lusail, Al Rayyan, Ras Laffan, Mesaieed...). You know local hiring norms: Qatari nationals priority (Qatarization), visa sponsorship, NOC and transferable visas, QID, typical QAR salary ranges, and that most private-sector roles hire in English while government and many local firms prefer Arabic.
 Absolute rule: never invent experience, employers, degrees, certifications, numbers or skills the candidate does not have. You may reorder, rephrase, emphasise and quantify only what the candidate's data supports.`;
 
-async function structured<T extends z.ZodType>(cfg: AiConfig, schema: T, effort: 'low' | 'medium' | 'high', prompt: string, maxTokens: number): Promise<z.infer<T>> {
+/**
+ * One structured call. `candidate` (the profile) goes into a cached system block: a search analyses
+ * and writes for several jobs in a row with the same profile, so later calls read it at ~10% of the price.
+ */
+async function structured<T extends z.ZodType>(cfg: AiConfig, schema: T, effort: 'low' | 'medium' | 'high', prompt: string, maxTokens: number, candidate?: string): Promise<z.infer<T>> {
+  // Haiku has no server-side refusal fallback; the other models fall back by refusal category.
+  const fallback = cfg.model.startsWith('claude-haiku') ? {} : { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const };
   const res = await client(cfg).beta.messages.parse({
     model: cfg.model,
     max_tokens: maxTokens,
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
-    system: SYSTEM,
+    ...fallback,
+    system: candidate
+      ? [
+          { type: 'text', text: SYSTEM },
+          { type: 'text', text: `<candidate>\n${candidate}\n</candidate>`, cache_control: { type: 'ephemeral' } },
+        ]
+      : SYSTEM,
     output_config: { effort, format: betaZodOutputFormat(schema) },
     messages: [{ role: 'user', content: prompt }],
   });
@@ -86,14 +96,13 @@ export async function analyzeJob(cfg: AiConfig, p: Profile, job: Job, uiLang: La
     `UI language: ${uiLang === 'ar' ? 'Arabic' : 'English'}.
 Score how well this Qatar job fits the candidate. If the employer or workplace belongs to an industry listed in the candidate's prefs.avoidIndustries (e.g. "hotels" covers any hotel, resort or hospitality brand), the score must be at most 10 and that must be the first gap. Weigh: role/title fit, hard skills, years and seniority, the candidate's job-type, workplace, distance and language preferences, salary floor (QAR), and visa status vs. any nationality/visa restriction in the posting. Penalise hard blockers heavily.
 
-<candidate>
-${profileBrief(p)}
-</candidate>
+The candidate is in the system prompt.
 
 <job>
 ${jobBrief(job)}
 </job>`,
     4000,
+    profileBrief(p),
   );
   return {
     analysis: {
@@ -154,14 +163,13 @@ export async function generatePackage(cfg: AiConfig, p: Profile, job: Job, analy
 - Sign everything with the candidate's real name and phone. Never use placeholders like [Company].
 ${analysis?.keyRequirements.length ? `Key requirements: ${analysis.keyRequirements.join('; ')}` : ''}
 
-<candidate>
-${profileBrief(p)}
-</candidate>
+The candidate is in the system prompt.
 
 <job>
 ${jobBrief(job)}
 </job>`,
     16000,
+    profileBrief(p),
   );
   const { channel, target } = pickChannel(job);
   return {

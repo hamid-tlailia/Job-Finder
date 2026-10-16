@@ -103,6 +103,7 @@ async function processJobs(all: Job[], c: SourceContext, errors: string[]): Prom
   useStore.getState().setRun({ step: 'analyze', done: 0, total: candidates.length });
   let ready = 0;
   const readyIds: string[] = [];
+  const strong: { id: string; score: number }[] = [];
   if (settings.autoPrepare) {
     await settle(candidates, settings.apiKey ? 3 : 4, async ({ j }) => {
       try {
@@ -131,16 +132,24 @@ async function processJobs(all: Job[], c: SourceContext, errors: string[]): Prom
         } else {
           useStore.getState().upsertMatch(j.id, { localScore: score, analysis: localAnalysis(job, viewed, best.score) });
         }
-        if (isStrongMatch(profile.prefs, score, analysis)) {
-          await prepare(j.id);
-          ready++;
-          readyIds.push(j.id);
-        }
+        if (isStrongMatch(profile.prefs, score, analysis)) strong.push({ id: j.id, score });
       } catch (e) {
         errors.push(`${j.title}: ${e instanceof Error ? e.message : e}`);
       } finally {
         const r = useStore.getState().run;
         useStore.getState().setRun({ done: r.done + 1 });
+      }
+    });
+    // Writing an application is the expensive step, so only the best few are written per search;
+    // the rest stay in the list with a "Prepare" button.
+    const best = strong.sort((a, b) => b.score - a.score).slice(0, settings.maxPreparePerRun ?? 3);
+    await settle(best, 3, async ({ id }) => {
+      try {
+        await prepare(id);
+        ready++;
+        readyIds.push(id);
+      } catch (e) {
+        errors.push(`${useStore.getState().jobs[id]?.title ?? id}: ${e instanceof Error ? e.message : e}`);
       }
     });
   }
@@ -230,7 +239,7 @@ export async function prepareStrongPending(): Promise<number> {
   const todo = Object.values(matches)
     .filter((m) => m.status === 'new' && m.analysis && jobs[m.jobId] && listable([jobs[m.jobId]]).length > 0 && isStrongMatch(profile.prefs, m.analysis.score, m.analysis))
     .sort((a, b) => (b.analysis?.score ?? 0) - (a.analysis?.score ?? 0))
-    .slice(0, settings.maxAiPerRun);
+    .slice(0, settings.maxPreparePerRun ?? 3);
   let ready = 0;
   await settle(todo, 3, async (m) => {
     await prepare(m.jobId);

@@ -76,7 +76,8 @@ public class ComposerPlugin extends Plugin {
             String phone = call.getString("phone", "").replaceAll("\\D", "");
             ArrayList<Uri> uris = toUris(call.getArray("attachments"));
             for (String pkg : new String[] { "com.whatsapp", "com.whatsapp.w4b" }) {
-                Intent intent = new Intent(Intent.ACTION_SEND);
+                // Both PDFs (CV + cover letter) go straight into the chat named by "jid".
+                Intent intent = new Intent(uris.size() > 1 ? Intent.ACTION_SEND_MULTIPLE : Intent.ACTION_SEND);
                 intent.setPackage(pkg);
                 intent.setType(uris.isEmpty() ? "text/plain" : "application/pdf");
                 intent.putExtra(Intent.EXTRA_TEXT, call.getString("text", ""));

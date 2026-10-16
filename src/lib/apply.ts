@@ -57,8 +57,19 @@ export async function previewPdf(p: Profile, job: Job, pkg: ApplicationPackage, 
   }
 }
 
+/**
+ * International WhatsApp number without "+": local Qatar numbers (8 digits, e.g. 71009484) get 974,
+ * and a leading 00 or trunk 0 is dropped, otherwise WhatsApp cannot find the chat.
+ */
+export function waNumber(raw: string): string {
+  let d = raw.replace(/\D/g, '').replace(/^00/, '');
+  if (/^[34567]\d{7}$/.test(d)) d = '974' + d;
+  else if (/^0[34567]\d{7}$/.test(d)) d = '974' + d.slice(1);
+  return d;
+}
+
 /** Opens the right app with everything filled in; the user only presses Send. */
-export async function sendApplication(p: Profile, job: Job, pkg: ApplicationPackage, channel: Channel, target: string): Promise<'opened' | 'copied'> {
+export async function sendApplication(p: Profile, job: Job, pkg: ApplicationPackage, channel: Channel, target: string): Promise<'opened' | 'copied' | 'whatsapp'> {
   const files = await buildPdfs(p, job, pkg);
   if (channel === 'email') {
     if (isNative) {
@@ -72,16 +83,19 @@ export async function sendApplication(p: Profile, job: Job, pkg: ApplicationPack
     return 'opened';
   }
   if (channel === 'whatsapp') {
-    const phone = target.replace(/\D/g, '');
+    const phone = waNumber(target);
+    // WhatsApp often drops the text when documents are shared, so it is also copied for a quick paste.
+    await Clipboard.write({ string: pkg.whatsappMessage });
     if (isNative) {
-      const att = await writeCache(files.cv.name, files.cv.data);
-      const r = await Composer.whatsapp({ phone, text: pkg.whatsappMessage, attachments: [att] });
+      const atts = [await writeCache(files.cv.name, files.cv.data), await writeCache(files.letter.name, files.letter.data)];
+      const r = await Composer.whatsapp({ phone, text: pkg.whatsappMessage, attachments: atts });
       if (!r.opened) await Browser.open({ url: `https://wa.me/${phone}?text=${encodeURIComponent(pkg.whatsappMessage)}` });
     } else {
       download(files.cv.name, files.cv.blob);
+      download(files.letter.name, files.letter.blob);
       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(pkg.whatsappMessage)}`, '_blank');
     }
-    return 'opened';
+    return 'whatsapp';
   }
   // Website: the cover letter goes to the clipboard and the CV is saved, ready to upload in the form.
   await Clipboard.write({ string: pkg.coverLetter });

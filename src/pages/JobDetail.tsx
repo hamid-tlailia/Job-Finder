@@ -88,6 +88,7 @@ export default function JobDetail({ id }: { id: string }) {
     try {
       const r = await sendApplication(profile, job, pkg, route.channel, route.target);
       if (r === 'copied') toast(t.job.websiteHint);
+      else if (r === 'whatsapp') toast(t.job.waHint);
       setTimeout(() => setAskSent(true), 900);
     } catch (e) {
       toast(e instanceof Error ? e.message : String(e));

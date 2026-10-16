@@ -24,6 +24,7 @@ export default function ProfilePage() {
   const push = useNav((s) => s.push);
   const city = QATAR_CITIES.find((c) => c.id === p.city);
   const Chevron = lang === 'ar' ? ChevronLeft : ChevronRight;
+  const initials = p.fullName.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase());
   const rows = [
     { icon: SlidersHorizontal, label: t.profile.preferences, section: 'prefs', value: [...p.prefs.jobTypes.map((j) => t.jobType[j]), ...p.prefs.workplaces.map((w) => t.workplace[w])].join(' · ') },
     { icon: BriefcaseBusiness, label: t.profile.experience, section: 'experience', value: `${p.experience.length}` },
@@ -45,10 +46,19 @@ export default function ProfilePage() {
         </div>
         <div className="relative -mt-14 flex flex-col items-center rounded-t-[28px] bg-bg px-5 pb-6 pt-16 text-center">
           <motion.div initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="absolute -top-12 left-1/2 size-24 -translate-x-1/2 overflow-hidden rounded-full border-4 border-bg bg-gradient-to-br from-accent to-[#4a0a1e] shadow-[0_16px_32px_-14px_var(--glow)]">
-            <svg viewBox="0 0 96 96" className="size-full" aria-hidden>
-              <circle cx="48" cy="38" r="17" fill="#f3dcae" />
-              <path d="M14 96c2-20 16-32 34-32s32 12 34 32z" fill="#f3dcae" />
-            </svg>
+            {initials.length ? (
+              // Each letter in its own span so Arabic initials do not join into one word.
+              <span dir="ltr" className="flex size-full items-center justify-center gap-0.5 text-[2rem] font-bold text-[#f3dcae]">
+                {(/[\u0600-\u06FF]/.test(initials.join('')) ? [...initials].reverse() : initials).map((c, i) => (
+                  <span key={i}>{c}</span>
+                ))}
+              </span>
+            ) : (
+              <svg viewBox="0 0 96 96" className="size-full" aria-hidden>
+                <circle cx="48" cy="38" r="17" fill="#f3dcae" />
+                <path d="M14 96c2-20 16-32 34-32s32 12 34 32z" fill="#f3dcae" />
+              </svg>
+            )}
           </motion.div>
           <h1 className="font-display text-2xl font-bold">{p.fullName || '—'}</h1>
           <p className="mt-1 font-medium text-accent">{p.headline}</p>

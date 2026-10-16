@@ -50,6 +50,30 @@ export async function notifyReady(jobIds: string[]): Promise<void> {
   }
 }
 
+/** Announces freelance projects with a ready proposal, once per project. */
+export async function notifyGigs(gigIds: string[]): Promise<void> {
+  const before = new Set(notified());
+  const fresh = gigIds.filter((id) => !before.has(id));
+  if (!fresh.length) return;
+  try {
+    localStorage.setItem(NOTIFIED_KEY, JSON.stringify([...before, ...fresh].slice(-800)));
+  } catch {
+    /* storage unavailable */
+  }
+  const ar = useStore.getState().settings.uiLang === 'ar';
+  const title = ar ? `💻 ${fresh.length} مشاريع عمل حر بعروض جاهزة` : `💻 ${fresh.length} freelance projects with proposals ready`;
+  const body = ar ? 'كتبنا العرض والسعر والمدة. راجعها وقدّم قبل أن تكثر العروض.' : 'Proposal, price and timeline are written. Review and bid before the competition piles up.';
+  try {
+    if (isNative) {
+      await LocalNotifications.schedule({ notifications: [{ id: 4246, title, body, extra: { route: '/freelance' }, smallIcon: 'ic_stat_notify', largeIcon: 'ic_notify_large' }] });
+    } else if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, { body, icon: '/icon-192.png' });
+    }
+  } catch {
+    /* notifications are best effort */
+  }
+}
+
 export function onNotificationTap(cb: (route: string) => void): void {
   if (!isNative) return;
   void LocalNotifications.addListener('localNotificationActionPerformed', (e) => cb((e.notification.extra?.route as string) ?? '/inbox'));

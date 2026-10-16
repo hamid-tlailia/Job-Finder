@@ -2,6 +2,7 @@ import { BackgroundRunner } from '@capacitor/background-runner';
 import type { Job } from '../core/types';
 import { dedupeKey } from '../core/match';
 import { useStore } from '../store/useStore';
+import { useGigs } from '../store/useGigs';
 import { isNative } from './http';
 
 const LABEL = 'qa.jobfinder.app.check';
@@ -24,11 +25,19 @@ export async function syncBackground(): Promise<void> {
         known: known.slice(-1500),
         waiting: Object.values(matches).filter((m) => m.status === 'ready' && jobs[m.jobId]).length,
         syncedAt: Date.now(),
+        freelance: freelanceConfig(),
       },
     });
   } catch {
     /* runner unavailable (e.g. first launch) */
   }
+}
+
+/** Freelance search runs in the background only once the freelancer profile is filled in. */
+function freelanceConfig() {
+  const { fp, matches } = useGigs.getState();
+  if (!fp.cvText.trim() && !fp.headline.trim()) return undefined;
+  return { fp: { ...fp, cvText: '' }, known: Object.keys(matches).slice(-1500) };
 }
 
 /** Pulls jobs the background check found while the app was closed. */

@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, MotionConfig } from 'motion/react';
-import { Briefcase, Compass, Inbox, UserRound } from 'lucide-react';
+import { Briefcase, Code2, Compass, Inbox, UserRound } from 'lucide-react';
 import { Component, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -14,6 +14,7 @@ import { ingestBackground, prepareStrongPending, runSearch } from './lib/pipelin
 import { BackgroundRunner } from '@capacitor/background-runner';
 import { onNotificationTap } from './lib/notify';
 import { syncBackground } from './lib/background';
+import { runGigSearch } from './lib/gigPipeline';
 import Welcome from './pages/Welcome';
 import Onboarding from './pages/Onboarding';
 import Home from './pages/Home';
@@ -24,6 +25,9 @@ import JobDetail from './pages/JobDetail';
 import Settings from './pages/Settings';
 import EditProfile from './pages/EditProfile';
 import EditTrack from './pages/EditTrack';
+import Freelance from './pages/Freelance';
+import GigDetail from './pages/GigDetail';
+import FreelanceProfile from './pages/FreelanceProfile';
 
 function useTheme(): boolean {
   const mode = useStore((s) => s.settings.theme);
@@ -52,6 +56,7 @@ function useTheme(): boolean {
 const TABS: { id: Tab; icon: typeof Compass }[] = [
   { id: 'home', icon: Compass },
   { id: 'review', icon: Inbox },
+  { id: 'freelance', icon: Code2 },
   { id: 'tracker', icon: Briefcase },
   { id: 'profile', icon: UserRound },
 ];
@@ -69,7 +74,7 @@ function TabBar() {
         {/* One pill sliding by column. A shared-layout (layoutId) pill was measured against the page and
             flew in from below whenever a tab change reset the scroll position. */}
         <div aria-hidden className="pointer-events-none absolute inset-x-2 top-2 h-8">
-          <motion.div className="flex h-full w-1/4 justify-center" initial={false} animate={{ x: `${(rtl ? -1 : 1) * index * 100}%` }} transition={spring}>
+          <motion.div className="flex h-full justify-center" style={{ width: `${100 / TABS.length}%` }} initial={false} animate={{ x: `${(rtl ? -1 : 1) * index * 100}%` }} transition={spring}>
             <span className="h-8 w-12 rounded-[11px]" style={{ background: 'var(--pill)' }} />
           </motion.div>
         </div>
@@ -144,7 +149,7 @@ function Main() {
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
   }, [tab]);
-  const TabPage = { home: Home, review: Review, tracker: Tracker, profile: ProfilePage }[tab];
+  const TabPage = { home: Home, review: Review, freelance: Freelance, tracker: Tracker, profile: ProfilePage }[tab];
   return (
     <>
       {/* No exit animation: a leaving tab kept in the page made short tabs (Review) scroll as long as Home. */}
@@ -170,6 +175,8 @@ function Main() {
               {top.name === 'settings' && <Settings />}
               {top.name === 'editProfile' && <EditProfile section={top.section} />}
               {top.name === 'track' && <EditTrack id={top.id} />}
+              {top.name === 'gig' && <GigDetail id={top.id} />}
+              {top.name === 'freelanceProfile' && <FreelanceProfile />}
             </ErrorBoundary>
           </motion.div>
         )}
@@ -195,7 +202,7 @@ export default function App() {
 
   useEffect(() => {
     if (isNative) void SplashScreen.hide({ fadeOutDuration: 350 }).catch(() => undefined);
-    onNotificationTap((route) => useNav.getState().setTab(route.includes('inbox') ? 'review' : 'home'));
+    onNotificationTap((route) => useNav.getState().setTab(route.includes('freelance') ? 'freelance' : route.includes('inbox') ? 'review' : 'home'));
     if (!isNative) return;
     const back = CapApp.addListener('backButton', () => {
       if (!useNav.getState().pop()) {
@@ -210,7 +217,12 @@ export default function App() {
       else void openPending();
     });
     // Tap on a background-check notification while the app is alive.
-    const tapped = BackgroundRunner.addListener('backgroundRunnerNotificationReceived', () => {
+    const tapped = BackgroundRunner.addListener('backgroundRunnerNotificationReceived', (e) => {
+      if (e.actionTypeId === 'open_freelance' || e.notificationId === 4247) {
+        useNav.getState().setTab('freelance');
+        void runGigSearch().catch(() => undefined);
+        return;
+      }
       useNav.getState().setTab('review');
       void openPending();
     });

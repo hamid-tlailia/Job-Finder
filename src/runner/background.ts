@@ -4,6 +4,7 @@ import { SOURCES } from '../core/sources';
 import { listable } from '../core/sources/util';
 import { bestTrack, buildQueries, deepQueries, dedupeKey, prepareThreshold } from '../core/match';
 import { BROWSER_UA } from '../core/allowlist';
+import { GIG_SOURCES, gigFresh, localGigScore, type FreelanceProfile } from '../core/gigs';
 
 declare const CapacitorKV: { get(k: string): { value: string } | null | undefined; set(k: string, v: string): void };
 declare const CapacitorNotifications: { schedule(o: unknown[]): void };
@@ -19,6 +20,8 @@ interface Config {
   /** Prepared applications waiting in Review when the app last synced. */
   waiting?: number;
   syncedAt?: number;
+  /** Freelancer profile (without CV) and the projects the app already knows, when freelance search is set up. */
+  freelance?: { fp: FreelanceProfile; known: string[] };
 }
 
 function kvGet<T>(k: string, fallback: T): T {
@@ -132,6 +135,7 @@ addEventListener('checkJobs', async (resolve) => {
         },
       ]);
     }
+    await checkGigs(cfg);
     CapacitorKV.set('status', JSON.stringify({ at: new Date().toISOString(), found: found.length, fresh: fresh.length, error: errors.join(' · ') || undefined }));
     resolve({ found: found.length, fresh: fresh.length });
   } catch (e) {
@@ -139,3 +143,43 @@ addEventListener('checkJobs', async (resolve) => {
     resolve();
   }
 });
+
+/** Freelance projects: speed wins bids, so strong new ones are announced as soon as the hourly check sees them. */
+async function checkGigs(cfg: Config): Promise<void> {
+  const fl = cfg.freelance;
+  if (!fl || !cfg.notifications) return;
+  try {
+    const seen = new Set<string>([...fl.known, ...kvGet<string[]>('gigSeen', [])]);
+    const fresh: { title: string; score: number }[] = [];
+    for (const src of GIG_SOURCES) {
+      if (fl.fp.sources[src.id] === false || src.id === 'remoteok') continue;
+      try {
+        for (const g of await src.search(fetchText)) {
+          if (seen.has(g.id) || !gigFresh(g, 24)) continue;
+          const s = localGigScore(g, fl.fp);
+          if (s.blocked || s.score < 60) continue;
+          seen.add(g.id);
+          fresh.push({ title: g.title, score: s.score });
+        }
+      } catch {
+        /* one failing board must not stop the other */
+      }
+    }
+    CapacitorKV.set('gigSeen', JSON.stringify([...seen].slice(-1500)));
+    if (!fresh.length) return;
+    fresh.sort((a, b) => b.score - a.score);
+    const ar = cfg.uiLang === 'ar';
+    CapacitorNotifications.schedule([
+      {
+        id: 4247,
+        title: ar ? `💻 ${fresh.length} مشاريع عمل حر جديدة تناسبك` : `💻 ${fresh.length} new freelance projects for you`,
+        body: ar ? `${fresh[0].title}. افتح التطبيق لنكتب عرضك قبل أن تكثر العروض.` : `${fresh[0].title}. Open the app to get your proposal written before bids pile up.`,
+        smallIcon: 'ic_stat_notify', largeIcon: 'ic_notify_large',
+        actionTypeId: 'open_freelance',
+        autoCancel: true,
+      },
+    ]);
+  } catch {
+    /* freelance check is best effort */
+  }
+}

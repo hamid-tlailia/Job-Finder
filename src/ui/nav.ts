@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
-export type Tab = 'home' | 'review' | 'tracker' | 'profile';
-export type Screen = { name: 'job'; id: string } | { name: 'settings' } | { name: 'editProfile'; section?: string } | { name: 'track'; id: string };
+export type Tab = 'home' | 'review' | 'freelance' | 'tracker' | 'profile';
+export type Screen = { name: 'job'; id: string } | { name: 'settings' } | { name: 'editProfile'; section?: string } | { name: 'track'; id: string } | { name: 'gig'; id: string } | { name: 'freelanceProfile' };
 
 interface Nav {
   tab: Tab;

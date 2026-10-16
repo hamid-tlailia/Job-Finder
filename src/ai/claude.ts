@@ -4,6 +4,7 @@ import * as z from 'zod/v4';
 import type { Analysis, ApplicationPackage, CvTemplate, Job, Lang, Profile, TailoredCv } from '../core/types';
 import { chooseTemplate, contactLine, personalLine, pickChannel, pickLanguage } from '../core/template';
 import { cityOf } from '../core/qatar';
+import type { FreelanceProfile, Gig } from '../core/gigs';
 import { geminiAvailable, geminiStructured, isGemini } from './gemini';
 
 export const MODELS = [
@@ -28,8 +29,8 @@ Absolute rule: never invent experience, employers, degrees, certifications, numb
  * One structured call. `candidate` (the profile) goes into a cached system block: a search analyses
  * and writes for several jobs in a row with the same profile, so later calls read it at ~10% of the price.
  */
-async function structured<T extends z.ZodType>(cfg: AiConfig, schema: T, effort: 'low' | 'medium' | 'high', prompt: string, maxTokens: number, candidate?: string): Promise<z.infer<T>> {
-  if (isGemini(cfg.model)) return geminiStructured(cfg.apiKey, cfg.model, schema, candidate ? `${SYSTEM}\n\n<candidate>\n${candidate}\n</candidate>` : SYSTEM, prompt, maxTokens);
+async function structured<T extends z.ZodType>(cfg: AiConfig, schema: T, effort: 'low' | 'medium' | 'high', prompt: string, maxTokens: number, candidate?: string, system = SYSTEM): Promise<z.infer<T>> {
+  if (isGemini(cfg.model)) return geminiStructured(cfg.apiKey, cfg.model, schema, candidate ? `${system}\n\n<candidate>\n${candidate}\n</candidate>` : system, prompt, maxTokens);
   // Haiku has no server-side refusal fallback; the other models fall back by refusal category.
   const fallback = cfg.model.startsWith('claude-haiku') ? {} : { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const };
   const res = await client(cfg).beta.messages.parse({
@@ -38,10 +39,10 @@ async function structured<T extends z.ZodType>(cfg: AiConfig, schema: T, effort:
     ...fallback,
     system: candidate
       ? [
-          { type: 'text', text: SYSTEM },
+          { type: 'text', text: system },
           { type: 'text', text: `<candidate>\n${candidate}\n</candidate>`, cache_control: { type: 'ephemeral' } },
         ]
-      : SYSTEM,
+      : system,
     output_config: { effort, format: betaZodOutputFormat(schema) },
     messages: [{ role: 'user', content: prompt }],
   });
@@ -395,4 +396,92 @@ ${profileBrief(p)}
 </candidate>`,
     12000,
   );
+}
+
+/* ── Freelance projects ──────────────────────────────────────────────────────────────────── */
+
+const FREELANCE_SYSTEM = `You are an experienced freelance consultant for software developers on Mostaql, Freelancer.com and remote job boards. You judge projects the way a successful senior freelancer does: real fit with the developer's stack, realistic budget and scope, client seriousness, and warning signs (pay-to-start, moving payment off the platform, vague scope with tiny budget, account or data "recovery", cheating or illegal work, clone-an-app-for-$30).
+Absolute rule: never invent experience, projects, clients or numbers the developer does not have.`;
+
+function freelancerBrief(fp: FreelanceProfile): string {
+  return JSON.stringify({ name: fp.name, headline: fp.headline, skills: fp.keywords, portfolio: fp.portfolio, hourlyRateUsd: fp.hourlyRateUsd, cv: fp.cvText.slice(0, 10000) }, null, 1);
+}
+
+function gigBrief(g: Gig): string {
+  return JSON.stringify({ platform: g.sourceLabel, title: g.title, description: g.description.slice(0, 6000), budgetUsd: g.budgetMin || g.budgetMax ? { min: g.budgetMin, max: g.budgetMax, type: g.budgetType } : 'not stated', clientDeliveryDays: g.durationDays, bidsSoFar: g.bids, skills: g.skills, postedAt: g.postedAt }, null, 1);
+}
+
+const GigAnalysisSchema = z.object({
+  score: z.number().describe('0-100 fit for THIS developer: stack match, scope they can deliver well, budget worth their time, competition'),
+  verdict: z.enum(['excellent', 'good', 'fair', 'weak']),
+  summary: z.string().describe('2 short sentences in the UI language: what the client really needs and whether to bid'),
+  reasons: z.array(z.string()).describe('up to 3 short reasons it fits, UI language'),
+  risks: z.array(z.string()).describe('up to 3 short warnings (scope, budget, client, competition, red flags), UI language; empty if none'),
+  scamRisk: z.enum(['low', 'medium', 'high']),
+  suggestedPrice: z.number().describe('a competitive but fair bid in USD for the scope (per hour if the project is hourly)'),
+  deliveryDays: z.number().describe('realistic delivery time in days'),
+  language: z.enum(['ar', 'en']).describe('language the proposal should be written in: the language of the project post'),
+});
+export type GigAnalysis = z.infer<typeof GigAnalysisSchema>;
+
+export async function analyzeGig(cfg: AiConfig, fp: FreelanceProfile, g: Gig, uiLang: Lang): Promise<GigAnalysis> {
+  const r = await structured(
+    cfg,
+    GigAnalysisSchema,
+    'low',
+    `UI language: ${uiLang === 'ar' ? 'Arabic' : 'English'}.
+Assess this freelance project for the developer in the system prompt. A project the developer cannot deliver with their stack (e.g. "Kotlin only", native iOS Swift only, WordPress theme work for a React developer) is at most 35. Set scamRisk high for pay-to-start, off-platform payment, account/data recovery or anything illegal, and then score at most 10. Many bids (40+) lower the chance of winning.
+
+<project>
+${gigBrief(g)}
+</project>`,
+    3000,
+    freelancerBrief(fp),
+    FREELANCE_SYSTEM,
+  );
+  return { ...r, score: Math.round(Math.max(0, Math.min(100, r.score))) };
+}
+
+const ProposalSchema = z.object({
+  proposal: z.string().describe('the proposal text, ready to paste'),
+  bidAmount: z.number().describe('bid in USD (per hour for hourly projects)'),
+  deliveryDays: z.number(),
+});
+export type GigProposal = z.infer<typeof ProposalSchema>;
+
+export async function writeProposal(cfg: AiConfig, fp: FreelanceProfile, g: Gig, a?: GigAnalysis): Promise<GigProposal> {
+  const lang = a?.language ?? g.language;
+  return structured(
+    cfg,
+    ProposalSchema,
+    'medium',
+    `Write the developer's proposal for this project in ${lang === 'ar' ? 'clear professional Modern Standard Arabic (no flowery openings)' : 'natural, confident English'}.
+Rules — clients skim the first two lines and reject anything that reads like a template or AI:
+- 120-200 words. No greeting line like "Dear Sir" / "عزيزي العميل", no "I am writing to", no clichés ("hard-working", "I have read your project carefully").
+- Line 1: restate the client's actual goal in your own words and say you can deliver it.
+- Cite ONE relevant past project or skill from the developer's CV/portfolio, concretely (what was built, with which stack). Never invent.
+- 3-4 short numbered steps of how you will do it, with the tech you would use.
+- Delivery time and price, aligned with bidAmount and deliveryDays.
+- End with ONE specific question that shows understanding and invites a reply.
+- Sign with the developer's first name.
+${a ? `Suggested price ${a.suggestedPrice} USD, delivery ${a.deliveryDays} days — adjust if the scope requires.` : ''}
+
+<project>
+${gigBrief(g)}
+</project>`,
+    4000,
+    freelancerBrief(fp),
+    FREELANCE_SYSTEM,
+  );
+}
+
+const FreelancerCvSchema = z.object({
+  name: z.string(),
+  headline: z.string().describe('short professional title in the CV language'),
+  keywords: z.array(z.string()).describe('8-20 lowercase search keywords: frameworks, languages, platforms and service words a client would use (english), plus 3-5 Arabic service words like "تطبيق جوال", "موقع"'),
+  portfolio: z.string().describe('the projects in the CV, one per line: name — what it is — stack'),
+});
+
+export async function parseFreelancerCv(cfg: AiConfig, cvText: string): Promise<z.infer<typeof FreelancerCvSchema>> {
+  return structured(cfg, FreelancerCvSchema, 'low', `Extract the developer's freelance profile from this CV. Only use what the CV says.\n\n<cv>\n${cvText.slice(0, 30000)}\n</cv>`, 3000, undefined, FREELANCE_SYSTEM);
 }

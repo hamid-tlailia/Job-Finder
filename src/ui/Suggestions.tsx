@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowDown, Check, FileUp, Layers, Replace, Sparkles, Wand2, X } from 'lucide-react';
 import { useRef, useState } from 'react';
-import { useStore } from '../store/useStore';
+import { useStore, hasAi } from '../store/useStore';
 import { useT } from '../i18n';
 import { Button, toast } from './kit';
 import { applySuggestion, createTrackFromSuggestions, currentValue, isPitch, preview, runProfileReview, type Section } from '../lib/profileReview';
@@ -132,7 +132,7 @@ export function CvActions() {
           } finally {
             setReading(false);
           }
-          if (settings.apiKey) await compare();
+          if (hasAi(settings)) await compare();
           else toast(t.suggest.needKey);
         }}
       />
@@ -141,13 +141,13 @@ export function CvActions() {
           {reading ? t.suggest.reading : t.suggest.upload}
         </Button>
         {profile.cvText.trim().length > 80 && (
-          <Button variant="soft" className="flex-1" loading={reviewing} disabled={!settings.apiKey} icon={<Wand2 className="size-4" />} onClick={compare}>
+          <Button variant="soft" className="flex-1" loading={reviewing} disabled={!hasAi(settings)} icon={<Wand2 className="size-4" />} onClick={compare}>
             {t.suggest.compare}
           </Button>
         )}
       </div>
       {reviewing && <p className="text-center text-[13px] text-muted">{t.suggest.comparing}</p>}
-      {!settings.apiKey && profile.cvText.trim().length > 80 && <p className="text-[12.5px] text-muted">{t.suggest.needKey}</p>}
+      {!hasAi(settings) && profile.cvText.trim().length > 80 && <p className="text-[12.5px] text-muted">{t.suggest.needKey}</p>}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import type { Profile } from '../core/types';
 import { reviewProfile, type ProfileSuggestion } from '../ai/claude';
-import { useStore } from '../store/useStore';
+import { useStore, hasAi, aiCfg } from '../store/useStore';
 import { syncBackground } from './background';
 import { addTrack } from './tracks';
 
@@ -9,10 +9,10 @@ export type Section = ProfileSuggestion['section'];
 /** Runs the AI comparison between the stored CV text and the profile. */
 export async function runProfileReview(): Promise<number> {
   const { profile, settings, setSuggestions, setReviewing } = useStore.getState();
-  if (!settings.apiKey || profile.cvText.trim().length < 80) return 0;
+  if (!hasAi(settings) || profile.cvText.trim().length < 80) return 0;
   setReviewing(true);
   try {
-    const list = await reviewProfile({ apiKey: settings.apiKey, model: settings.model }, profile, settings.uiLang);
+    const list = await reviewProfile(aiCfg(settings), profile, settings.uiLang);
     setSuggestions(list, new Date().toISOString());
     return list.length;
   } finally {

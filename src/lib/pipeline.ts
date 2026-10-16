@@ -5,7 +5,7 @@ import { bestTrack, buildQueries, deepQueries, dedupeKey, isStrongMatch, localAn
 import type { Analysis, Profile } from '../core/types';
 import { templatePackage } from '../core/template';
 import { analyzeJob, generatePackage } from '../ai/claude';
-import { useStore } from '../store/useStore';
+import { aiCfg, hasAi, useStore } from '../store/useStore';
 import { fetchText } from './http';
 import { notifyReady } from './notify';
 import { drainBackground, syncBackground } from './background';
@@ -50,10 +50,10 @@ export async function prepare(jobId: string): Promise<void> {
     st.upsertJob(job);
     const profile = profileFor(jobId, job);
     let analysis = st.matches[jobId]?.analysis;
-    if (settings.apiKey) {
-      const cfg = { apiKey: settings.apiKey, model: settings.model };
+    if (hasAi(settings)) {
+      const cfg = aiCfg(settings);
       if (!analysis || analysis.by !== 'ai') {
-        const r = await analyzeJob({ ...cfg, model: settings.fastModel || settings.model }, profile, job, settings.uiLang);
+        const r = await analyzeJob(aiCfg(settings, true), profile, job, settings.uiLang);
         analysis = r.analysis;
         job = { ...job, ...r.job };
         st.upsertJob(job);
@@ -99,13 +99,13 @@ async function processJobs(all: Job[], c: SourceContext, errors: string[]): Prom
 
   // Deep analysis on the strongest candidates only, to keep AI cost and time bounded.
   const threshold = Math.max(35, prepareThreshold(profile.prefs, 'local') - 25);
-  const candidates = scored.filter((x) => x.ls.score >= threshold).slice(0, settings.apiKey ? settings.maxAiPerRun : 15);
+  const candidates = scored.filter((x) => x.ls.score >= threshold).slice(0, hasAi(settings) ? settings.maxAiPerRun : 15);
   useStore.getState().setRun({ step: 'analyze', done: 0, total: candidates.length });
   let ready = 0;
   const readyIds: string[] = [];
   const strong: { id: string; score: number }[] = [];
   if (settings.autoPrepare) {
-    await settle(candidates, settings.apiKey ? 3 : 4, async ({ j }) => {
+    await settle(candidates, hasAi(settings) ? 3 : 4, async ({ j }) => {
       try {
         let job = await withDetail(j, c);
         useStore.getState().upsertJob(job);
@@ -118,8 +118,8 @@ async function processJobs(all: Job[], c: SourceContext, errors: string[]): Prom
         const viewed = trackProfile(profile, profile.tracks?.find((t) => t.id === best.trackId));
         let score = best.score.score;
         let analysis = undefined as Analysis | undefined;
-        if (settings.apiKey) {
-          const r = await analyzeJob({ apiKey: settings.apiKey, model: settings.fastModel || settings.model }, viewed, job, settings.uiLang);
+        if (hasAi(settings)) {
+          const r = await analyzeJob(aiCfg(settings, true), viewed, job, settings.uiLang);
           job = { ...job, ...r.job };
           useStore.getState().upsertJob(job);
           useStore.getState().upsertMatch(j.id, { analysis: r.analysis });

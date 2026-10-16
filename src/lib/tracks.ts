@@ -1,6 +1,6 @@
 import { MAX_TRACKS, type CareerTrack } from '../core/types';
 import { parseTrackCv, reviewProfile, suggestTracks, type TrackDraft } from '../ai/claude';
-import { useStore } from '../store/useStore';
+import { useStore, hasAi, aiCfg } from '../store/useStore';
 import { syncBackground } from './background';
 import { readCvFile } from './cvImport';
 
@@ -34,7 +34,7 @@ export async function autoTracks(): Promise<number> {
   const { profile, settings } = useStore.getState();
   const room = MAX_TRACKS - (profile.tracks ?? []).length;
   if (room <= 0) return 0;
-  const drafts = await suggestTracks({ apiKey: settings.apiKey, model: settings.model }, profile, settings.uiLang, room);
+  const drafts = await suggestTracks(aiCfg(settings), profile, settings.uiLang, room);
   for (const d of drafts) addTrack({ ...d, cvText: '' });
   return drafts.length;
 }
@@ -47,8 +47,8 @@ export async function importTrackCv(id: string, file: File): Promise<{ filled: b
   const cvText = await readCvFile(file);
   updateTrack(id, { cvText, cvName: file.name });
   const { settings, profile } = useStore.getState();
-  if (!settings.apiKey) return { filled: false, suggestions: 0 };
-  const cfg = { apiKey: settings.apiKey, model: settings.model };
+  if (!hasAi(settings)) return { filled: false, suggestions: 0 };
+  const cfg = aiCfg(settings);
   const track = (profile.tracks ?? []).find((t) => t.id === id);
   const d: TrackDraft = await parseTrackCv(cfg, cvText, settings.uiLang);
   if (track) {

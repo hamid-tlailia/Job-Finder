@@ -1,10 +1,10 @@
 import { polishProfile, type PolishResult } from '../ai/claude';
-import { useStore } from '../store/useStore';
+import { aiCfg, useStore } from '../store/useStore';
 import { syncBackground } from './background';
 
 export async function runPolish(): Promise<PolishResult> {
   const { profile, settings } = useStore.getState();
-  return polishProfile({ apiKey: settings.apiKey, model: settings.model }, profile, settings.uiLang);
+  return polishProfile(aiCfg(settings), profile, settings.uiLang);
 }
 
 /** Applies a polish result, keeping the previous profile for one-step undo. */

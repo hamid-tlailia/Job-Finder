@@ -2,13 +2,14 @@ import { ArrowLeft, ArrowRight, CircleHelp, ExternalLink, KeyRound, Laptop, Moon
 import { motion } from 'motion/react';
 import { useState } from 'react';
 import { Browser } from '@capacitor/browser';
-import { useStore } from '../store/useStore';
+import { aiCfg, hasAi, useStore } from '../store/useStore';
 import { useT } from '../i18n';
 import { useNav } from '../ui/nav';
 import { Button, Field, Input, Segmented, SectionTitle, Select, Sheet, Toggle, toast, Slider } from '../ui/kit';
 import type { CvTemplate } from '../core/types';
 import { SOURCES } from '../core/sources';
 import { MODELS, testKey } from '../ai/claude';
+import { GEMINI_MODELS } from '../ai/gemini';
 import { ensureNotifyPermission } from '../lib/notify';
 import { backgroundStatus, runBackgroundCheckNow, syncBackground, type BackgroundStatus } from '../lib/background';
 import { testNotification } from '../lib/notify';
@@ -21,9 +22,10 @@ export default function Settings() {
   const { t, lang } = useT();
   const pop = useNav((s) => s.pop);
   const { settings, setSettings, reset } = useStore();
+  const gemini = settings.aiProvider === 'gemini';
   const [testing, setTesting] = useState(false);
-  const [guide, setGuide] = useState<'claude' | 'serp' | 'jooble' | null>(null);
-  const help = (g: 'claude' | 'serp' | 'jooble') => (
+  const [guide, setGuide] = useState<'claude' | 'gemini' | 'serp' | 'jooble' | null>(null);
+  const help = (g: 'claude' | 'gemini' | 'serp' | 'jooble') => (
     <button type="button" onClick={() => setGuide(g)} className="mt-1.5 inline-flex items-center gap-1 text-[13px] font-semibold text-accent">
       <CircleHelp className="size-4" />
       {t.settings.howKey}
@@ -31,6 +33,7 @@ export default function Settings() {
   );
   const guides = {
     claude: { title: t.keyGuide.claudeTitle, steps: t.keyGuide.claude, note: t.keyGuide.claudeCost, url: 'https://platform.claude.com/settings/keys' },
+    gemini: { title: t.keyGuide.geminiTitle, steps: t.keyGuide.gemini, note: t.keyGuide.geminiCost, url: 'https://aistudio.google.com/apikey' },
     serp: { title: t.keyGuide.serpTitle, steps: t.keyGuide.serp, note: t.settings.serpQuota, url: 'https://serpapi.com/users/sign_up' },
     jooble: { title: t.keyGuide.joobleTitle, steps: t.keyGuide.jooble, note: '', url: 'https://jooble.org/api/about' },
   };
@@ -87,27 +90,47 @@ export default function Settings() {
 
         <SectionTitle>{t.settings.ai}</SectionTitle>
         <div className="card space-y-4 p-4">
-          <Field label={t.ob.finish.key} hint={t.ob.finish.keyHelp}>
-            <Input dir="ltr" type="password" placeholder="sk-ant-…" value={settings.apiKey} onChange={(e) => setSettings({ apiKey: e.target.value.trim() })} />
+          <Field label={t.settings.provider}>
+            <Segmented value={settings.aiProvider ?? 'claude'} onChange={(v) => setSettings({ aiProvider: v })} options={[{ id: 'claude', label: 'Claude' }, { id: 'gemini', label: 'Gemini' }]} />
           </Field>
-          {help('claude')}
-          <Field label={t.settings.model}>
-            <Select value={settings.model} onChange={(v) => setSettings({ model: v })} options={MODELS.map((m) => ({ id: m.id, label: `${m.label}` }))} />
-          </Field>
-          <Field label={t.aiTools.fastModel} hint={t.aiTools.fastHint}>
-            <Select value={settings.fastModel || settings.model} onChange={(v) => setSettings({ fastModel: v })} options={MODELS.map((m) => ({ id: m.id, label: `${m.label}` }))} />
-          </Field>
+          {gemini ? (
+            <>
+              <Field label={t.settings.geminiKey}>
+                <Input dir="ltr" type="password" placeholder="AIza…" value={settings.geminiKey} onChange={(e) => setSettings({ geminiKey: e.target.value.trim() })} />
+              </Field>
+              {help('gemini')}
+              <Field label={t.settings.model}>
+                <Select value={settings.geminiModel} onChange={(v) => setSettings({ geminiModel: v })} options={GEMINI_MODELS.map((m) => ({ id: m.id, label: m.label }))} />
+              </Field>
+              <Field label={t.aiTools.fastModel} hint={t.aiTools.fastHint}>
+                <Select value={settings.geminiFastModel || settings.geminiModel} onChange={(v) => setSettings({ geminiFastModel: v })} options={GEMINI_MODELS.map((m) => ({ id: m.id, label: m.label }))} />
+              </Field>
+            </>
+          ) : (
+            <>
+              <Field label={t.ob.finish.key} hint={t.ob.finish.keyHelp}>
+                <Input dir="ltr" type="password" placeholder="sk-ant-…" value={settings.apiKey} onChange={(e) => setSettings({ apiKey: e.target.value.trim() })} />
+              </Field>
+              {help('claude')}
+              <Field label={t.settings.model}>
+                <Select value={settings.model} onChange={(v) => setSettings({ model: v })} options={MODELS.map((m) => ({ id: m.id, label: `${m.label}` }))} />
+              </Field>
+              <Field label={t.aiTools.fastModel} hint={t.aiTools.fastHint}>
+                <Select value={settings.fastModel || settings.model} onChange={(v) => setSettings({ fastModel: v })} options={MODELS.map((m) => ({ id: m.id, label: `${m.label}` }))} />
+              </Field>
+            </>
+          )}
           <div className="flex gap-2">
             <Button
               variant="outline"
               className="flex-1"
               icon={<KeyRound className="size-4" />}
               loading={testing}
-              disabled={!settings.apiKey}
+              disabled={!hasAi(settings)}
               onClick={async () => {
                 setTesting(true);
                 try {
-                  await testKey({ apiKey: settings.apiKey, model: settings.model });
+                  await testKey(aiCfg(settings));
                   toast(`✓ ${t.settings.testOk}`);
                 } catch (e) {
                   toast(e instanceof Error ? e.message : String(e));
@@ -118,8 +141,8 @@ export default function Settings() {
             >
               {t.settings.test}
             </Button>
-            <Button variant="ghost" icon={<ExternalLink className="size-4" />} onClick={() => Browser.open({ url: 'https://platform.claude.com/settings/keys' })}>
-              Console
+            <Button variant="ghost" icon={<ExternalLink className="size-4" />} onClick={() => Browser.open({ url: gemini ? 'https://aistudio.google.com/apikey' : 'https://platform.claude.com/settings/keys' })}>
+              {gemini ? 'AI Studio' : 'Console'}
             </Button>
           </div>
         </div>

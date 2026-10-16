@@ -6,7 +6,7 @@ import { ChipAccordion } from '../ui/ChipAccordion';
 import { AiTools } from '../ui/AiTools';
 import { localGaps, runProfileReview } from '../lib/profileReview';
 import { CircleAlert, FileText, Sparkle, Target, ChevronLeft, ChevronRight, GraduationCap, Languages, Mail, MapPin, Pencil, Phone, Settings2, SlidersHorizontal, Award, BriefcaseBusiness } from 'lucide-react';
-import { useStore } from '../store/useStore';
+import { useStore, hasAi } from '../store/useStore';
 import { useT } from '../i18n';
 import { useNav } from '../ui/nav';
 import { QATAR_CITIES } from '../core/qatar';
@@ -19,7 +19,7 @@ export default function ProfilePage() {
   // First visit after a CV and an AI key are both available: compare them once automatically.
   useEffect(() => {
     const { settings, reviewedAt, reviewing, profile } = useStore.getState();
-    if (settings.apiKey && !reviewedAt && !reviewing && profile.cvText.trim().length > 80) void runProfileReview().catch(() => undefined);
+    if (hasAi(settings) && !reviewedAt && !reviewing && profile.cvText.trim().length > 80) void runProfileReview().catch(() => undefined);
   }, []);
   const push = useNav((s) => s.push);
   const city = QATAR_CITIES.find((c) => c.id === p.city);

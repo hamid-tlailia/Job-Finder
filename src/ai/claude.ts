@@ -4,6 +4,7 @@ import * as z from 'zod/v4';
 import type { Analysis, ApplicationPackage, CvTemplate, Job, Lang, Profile, TailoredCv } from '../core/types';
 import { chooseTemplate, contactLine, personalLine, pickChannel, pickLanguage } from '../core/template';
 import { cityOf } from '../core/qatar';
+import { geminiAvailable, geminiStructured, isGemini } from './gemini';
 
 export const MODELS = [
   { id: 'claude-opus-5-5', label: 'Claude Opus 5.5', note: 'best' },
@@ -28,6 +29,7 @@ Absolute rule: never invent experience, employers, degrees, certifications, numb
  * and writes for several jobs in a row with the same profile, so later calls read it at ~10% of the price.
  */
 async function structured<T extends z.ZodType>(cfg: AiConfig, schema: T, effort: 'low' | 'medium' | 'high', prompt: string, maxTokens: number, candidate?: string): Promise<z.infer<T>> {
+  if (isGemini(cfg.model)) return geminiStructured(cfg.apiKey, cfg.model, schema, candidate ? `${SYSTEM}\n\n<candidate>\n${candidate}\n</candidate>` : SYSTEM, prompt, maxTokens);
   // Haiku has no server-side refusal fallback; the other models fall back by refusal category.
   const fallback = cfg.model.startsWith('claude-haiku') ? {} : { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const };
   const res = await client(cfg).beta.messages.parse({
@@ -227,6 +229,11 @@ export async function parseCv(cfg: AiConfig, cvText: string): Promise<CvImport> 
 }
 
 export async function testKey(cfg: AiConfig): Promise<void> {
+  if (isGemini(cfg.model)) {
+    const models = await geminiAvailable(cfg.apiKey);
+    if (!models.includes(cfg.model)) throw new Error(`${cfg.model} is not available for this key (${models.filter(isGemini).slice(0, 4).join(', ')}…)`);
+    return;
+  }
   await client(cfg).models.retrieve(cfg.model);
 }
 

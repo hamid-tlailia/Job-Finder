@@ -2,7 +2,7 @@ import type { CvTemplate, Job, Lang, TailoredCv } from '../core/types';
 import { baseCv, contactLine, personalLine } from '../core/template';
 import { trackProfile } from '../core/match';
 import { generateFieldCv } from '../ai/claude';
-import { useStore } from '../store/useStore';
+import { useStore, hasAi, aiCfg } from '../store/useStore';
 import { buildCvPdf } from './pdf';
 import { loadFonts } from './fonts';
 import { sharePdf } from './apply';
@@ -13,8 +13,8 @@ export async function downloadFieldCv(trackId: string | undefined, lang: Lang, t
   const track = profile.tracks?.find((t) => t.id === trackId);
   const view = trackProfile(profile, track);
   let cv: TailoredCv;
-  if (settings.apiKey) {
-    const r = await generateFieldCv({ apiKey: settings.apiKey, model: settings.model }, { ...view, targetTitles: track?.targetTitles.length ? track.targetTitles : profile.targetTitles }, lang);
+  if (hasAi(settings)) {
+    const r = await generateFieldCv(aiCfg(settings), { ...view, targetTitles: track?.targetTitles.length ? track.targetTitles : profile.targetTitles }, lang);
     cv = { ...r, language: lang, name: profile.fullName, contact: contactLine(profile, lang), personal: personalLine(profile, lang) };
   } else {
     const pseudoJob = { title: view.headline, description: view.targetTitles.join(' ') } as Job;

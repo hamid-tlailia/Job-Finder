@@ -12,6 +12,11 @@ export interface Settings {
   uiLang: 'ar' | 'en';
   theme: ThemeMode;
   apiKey: string;
+  /** Which AI writes and scores: Claude (Anthropic) or Gemini (Google). */
+  aiProvider: 'claude' | 'gemini';
+  geminiKey: string;
+  geminiModel: string;
+  geminiFastModel: string;
   model: string;
   joobleKey: string;
   serpapiKey: string;
@@ -75,6 +80,10 @@ const defaultSettings: Settings = {
   uiLang: 'ar',
   theme: 'system',
   apiKey: '',
+  aiProvider: 'claude',
+  geminiKey: '',
+  geminiModel: 'gemini-3.8-flash',
+  geminiFastModel: 'gemini-3.5-flash-lite',
   model: 'claude-sonnet-5-5',
   joobleKey: '',
   serpapiKey: '',
@@ -177,6 +186,15 @@ export const useStore = create<State>()(
     },
   ),
 );
+
+/** True when the selected AI provider has a key. */
+export const hasAi = (s: Settings): boolean => !!(s.aiProvider === 'gemini' ? s.geminiKey : s.apiKey);
+
+/** Key and model for an AI call with the selected provider; `fast` picks the bulk-analysis model. */
+export function aiCfg(s: Settings, fast = false): { apiKey: string; model: string } {
+  if (s.aiProvider === 'gemini') return { apiKey: s.geminiKey, model: (fast ? s.geminiFastModel : s.geminiModel) || s.geminiModel };
+  return { apiKey: s.apiKey, model: (fast ? s.fastModel : s.model) || s.model };
+}
 
 /** Fit score shown to the user; a job outside Qatar always scores 0. */
 /** Stable empty array for selectors (a fresh [] each render makes zustand re-render forever). */

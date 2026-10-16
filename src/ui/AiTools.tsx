@@ -1,6 +1,6 @@
 import { Check, Download, Sparkles, Undo2 } from 'lucide-react';
 import { useState } from 'react';
-import { useStore } from '../store/useStore';
+import { useStore, hasAi } from '../store/useStore';
 import { useT } from '../i18n';
 import { Button, Sheet, toast } from './kit';
 import { applyPolish, runPolish, undoPolish } from '../lib/polish';
@@ -10,7 +10,7 @@ import { CvDownloadSheet } from './CvDownload';
 /** Profile card: one-tap AI polish (with preview and undo) and ready-CV download. */
 export function AiTools() {
   const { t } = useT();
-  const apiKey = useStore((s) => s.settings.apiKey);
+  const apiKey = useStore((s) => hasAi(s.settings));
   const backup = useStore((s) => s.profileBackup);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<PolishResult | null>(null);

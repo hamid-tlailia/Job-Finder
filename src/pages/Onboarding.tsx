@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, ArrowRight, Bell, FileUp, Globe2, Laptop, MapPin, Moon, Sparkles, Sun, Wand2 } from 'lucide-react';
 import { useRef, useState, type ReactNode } from 'react';
-import { useStore } from '../store/useStore';
+import { useStore, hasAi, aiCfg } from '../store/useStore';
 import { useT } from '../i18n';
 import { Button, ChipGroup, Field, Input, Segmented, Select, TagInput, TextArea, Toggle, toast, Slider } from '../ui/kit';
 import { COUNTRIES, QATAR_CITIES } from '../core/qatar';
@@ -44,13 +44,13 @@ export default function Onboarding({ onBack }: { onBack: () => void }) {
 
   async function importCv(text: string) {
     setProfile({ cvText: text });
-    if (!settings.apiKey) {
+    if (!hasAi(settings)) {
       setCvMsg(t.ob.cv.needKey);
       return;
     }
     setParsing(true);
     try {
-      const r = await parseCv({ apiKey: settings.apiKey, model: settings.model }, text);
+      const r = await parseCv(aiCfg(settings), text);
       const pick = <T,>(a: T, b: T) => (a && (!Array.isArray(a) || a.length) ? a : b);
       const cur = useStore.getState().profile;
       setProfile({

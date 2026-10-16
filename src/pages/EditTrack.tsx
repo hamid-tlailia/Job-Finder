@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import { ArrowLeft, ArrowRight, Check, Download, FileCheck2, FileUp, Trash2 } from 'lucide-react';
 import { CvDownloadSheet } from '../ui/CvDownload';
 import { useRef, useState } from 'react';
-import { useStore } from '../store/useStore';
+import { useStore, hasAi } from '../store/useStore';
 import { useT } from '../i18n';
 import { useNav } from '../ui/nav';
 import { Button, Field, Input, TagInput, TextArea, toast } from '../ui/kit';
@@ -14,7 +14,7 @@ export default function EditTrack({ id }: { id: string }) {
   const { t, f, lang } = useT();
   const pop = useNav((s) => s.pop);
   const track = useStore((s) => s.profile.tracks?.find((x) => x.id === id));
-  const apiKey = useStore((s) => s.settings.apiKey);
+  const apiKey = useStore((s) => hasAi(s.settings));
   const [reading, setReading] = useState(false);
   const [dl, setDl] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);

@@ -3,7 +3,7 @@ import { ExternalLink, Radar, RefreshCw, Settings2, SlidersHorizontal, Sparkles,
 import { QuickPrefs } from '../ui/QuickPrefs';
 import { useEffect, useMemo, useState } from 'react';
 import { Browser } from '@capacitor/browser';
-import { scoreOf, useStore } from '../store/useStore';
+import { scoreOf, useStore, hasAi } from '../store/useStore';
 import { useT } from '../i18n';
 import { Button, Empty, Logo, SectionTitle, toast } from '../ui/kit';
 import { JobCard } from '../ui/JobCard';
@@ -167,7 +167,7 @@ export default function Home() {
       </header>
 
       <div className="px-4">
-        {!settings.apiKey && (
+        {!hasAi(settings) && (
           <button onClick={() => push({ name: 'settings' })} className="mt-4 flex w-full items-center gap-3 rounded-2xl border border-gold/40 bg-gold-soft p-3.5 text-start text-[13px] font-medium">
             <Sparkles className="size-5 shrink-0 text-gold" />
             {t.home.noKeyHint}

@@ -59,7 +59,8 @@ const TABS: { id: Tab; icon: typeof Compass }[] = [
 function TabBar() {
   const { t } = useT();
   const { tab, setTab } = useNav();
-  const readyCount = useStore((s) => Object.values(s.matches).filter((m) => m.status === 'ready' && !m.seen).length);
+  // Everything waiting in Review, opened or not, so the badge matches the list.
+  const readyCount = useStore((s) => Object.values(s.matches).filter((m) => (m.status === 'ready' || m.status === 'preparing') && s.jobs[m.jobId]).length);
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface shadow-[0_-8px_24px_-14px_rgba(0,0,0,0.4)]" style={{ paddingBottom: 'var(--sab)' }}>
       <div className="mx-auto flex max-w-xl px-2 pt-1.5 pb-1">
@@ -98,14 +99,15 @@ function Main() {
   const rtl = useStore((s) => s.settings.uiLang === 'ar');
   // Screens enter from the reading-start edge and leave the same way: right in Arabic, left in English.
   const sign = rtl ? 1 : -1;
+  // Each tab opens at its top instead of at the previous tab's scroll position.
+  useLayoutEffect(() => window.scrollTo(0, 0), [tab]);
   const TabPage = { home: Home, review: Review, tracker: Tracker, profile: ProfilePage }[tab];
   return (
     <>
-      <AnimatePresence mode="popLayout" initial={false}>
-        <motion.main key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} className="min-h-full pb-28">
-          <TabPage />
-        </motion.main>
-      </AnimatePresence>
+      {/* No exit animation: a leaving tab kept in the page made short tabs (Review) scroll as long as Home. */}
+      <motion.main key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="min-h-full pb-28">
+        <TabPage />
+      </motion.main>
       <TabBar />
       <AnimatePresence custom={dir}>
         {top && (

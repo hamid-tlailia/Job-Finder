@@ -40,9 +40,27 @@ export async function drainBackground(): Promise<Job[]> {
   }
 }
 
+export interface BackgroundStatus {
+  at?: string;
+  found?: number;
+  fresh?: number;
+  error?: string;
+}
+
+/** Result of the last background check (scheduled or manual). */
+export async function backgroundStatus(): Promise<BackgroundStatus> {
+  if (!isNative) return {};
+  try {
+    return ((await BackgroundRunner.dispatchEvent({ label: LABEL, event: 'status', details: {} })) as BackgroundStatus | undefined) ?? {};
+  } catch {
+    return {};
+  }
+}
+
 /** Runs the same check the OS schedules hourly, right now (used to verify notifications work). */
-export async function runBackgroundCheckNow(): Promise<void> {
-  if (!isNative) return;
+export async function runBackgroundCheckNow(): Promise<BackgroundStatus> {
+  if (!isNative) return {};
   await syncBackground();
   await BackgroundRunner.dispatchEvent({ label: LABEL, event: 'checkJobs', details: {} });
+  return backgroundStatus();
 }

@@ -1,3 +1,4 @@
+import { pickChannel } from '../core/template';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, ArrowRight, Bookmark, Briefcase, Check, CircleAlert, Copy, Eye, FileText, Globe, Mail, MapPin, MessageCircle, RefreshCw, Send, Sparkles, Wallet, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -85,7 +86,7 @@ export default function JobDetail({ id }: { id: string }) {
     if (!pkg) return;
     setSending(true);
     try {
-      const r = await sendApplication(profile, job, pkg, pkg.channel, pkg.target);
+      const r = await sendApplication(profile, job, pkg, route.channel, route.target);
       if (r === 'copied') toast(t.job.websiteHint);
       setTimeout(() => setAskSent(true), 900);
     } catch (e) {
@@ -101,7 +102,10 @@ export default function JobDetail({ id }: { id: string }) {
     { id: 'website', label: t.job.website, icon: <Globe className="size-4" /> },
   ];
   const defaultTarget = (c: Channel) => (c === 'email' ? job.contactEmail ?? '' : c === 'whatsapp' ? job.contactPhone ?? '' : job.applyUrl ?? job.url);
-  const canSend = !!pkg && !!pkg.target.trim();
+  // A package without a recipient (e.g. email chosen but the posting lists no address) falls back to
+  // the best channel the posting does have, which is at least its website.
+  const route = pkg?.target.trim() ? { channel: pkg.channel, target: pkg.target.trim() } : pickChannel(job);
+  const canSend = !!pkg && !!route.target;
 
   return (
     <div className="min-h-full pb-36">
@@ -419,9 +423,9 @@ export default function JobDetail({ id }: { id: string }) {
         {pkg && (
           <motion.div initial={{ y: 120 }} animate={{ y: 0 }} exit={{ y: 120 }} transition={{ type: 'spring', stiffness: 260, damping: 28 }} className="pb-safe fixed bg-surface inset-x-0 bottom-0 z-30 border-t border-line px-4 pt-3">
             <div className="mb-2 flex items-center gap-2 text-[12px] font-semibold text-muted">
-              {channels.find((c) => c.id === pkg.channel)?.icon}
+              {channels.find((c) => c.id === route.channel)?.icon}
               <span className="truncate" dir="ltr">
-                {pkg.target || '—'}
+                {route.target || '—'}
               </span>
             </div>
             <Button
@@ -429,11 +433,10 @@ export default function JobDetail({ id }: { id: string }) {
               size="lg"
               className="mb-2 w-full"
               loading={sending}
-              disabled={!canSend}
               onClick={() => (canSend ? doSend() : setTab('message'))}
               icon={<Send className="size-5" />}
             >
-              {t.job.send} · {channels.find((c) => c.id === pkg.channel)?.label}
+              {t.job.send} · {channels.find((c) => c.id === route.channel)?.label}
             </Button>
           </motion.div>
         )}

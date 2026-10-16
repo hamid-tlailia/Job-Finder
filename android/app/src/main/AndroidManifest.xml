@@ -57,6 +57,15 @@
         <package android:name="com.whatsapp" />
         <package android:name="com.whatsapp.w4b" />
         <package android:name="com.google.android.gm" />
+        <!-- Autostart screens of phone makers that block background work by default -->
+        <package android:name="com.miui.securitycenter" />
+        <package android:name="com.coloros.safecenter" />
+        <package android:name="com.oppo.safe" />
+        <package android:name="com.vivo.permissionmanager" />
+        <package android:name="com.iqoo.secure" />
+        <package android:name="com.huawei.systemmanager" />
+        <package android:name="com.letv.android.letvsafe" />
+        <package android:name="com.asus.mobilemanager" />
         <intent>
             <action android:name="android.intent.action.SEND" />
             <data android:mimeType="*/*" />

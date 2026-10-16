@@ -28,7 +28,15 @@ function kvGet<T>(k: string, fallback: T): T {
   }
 }
 
+const lastHit: Record<string, number> = {};
+
 async function fetchText(url: string, init: { method?: string; headers?: Record<string, string>; body?: string } = {}): Promise<string> {
+  // Space requests to one host like the app does; LinkedIn answers bursts with HTTP 429.
+  const host = url.split('/')[2];
+  const gap = host === 'www.linkedin.com' ? 2000 : 500;
+  const wait = (lastHit[host] ?? 0) + gap - Date.now();
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  lastHit[host] = Date.now();
   const res = await fetch(url, { method: init.method ?? 'GET', headers: { 'User-Agent': BROWSER_UA, ...init.headers }, body: init.body });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.text();
@@ -37,6 +45,10 @@ async function fetchText(url: string, init: { method?: string; headers?: Record<
 addEventListener('sync', (resolve, _reject, args) => {
   CapacitorKV.set('config', JSON.stringify(args));
   resolve();
+});
+
+addEventListener('status', (resolve) => {
+  resolve(kvGet('status', {}));
 });
 
 addEventListener('drain', (resolve) => {
@@ -48,11 +60,17 @@ addEventListener('drain', (resolve) => {
 addEventListener('checkJobs', async (resolve) => {
   try {
     const cfg = kvGet<Config | null>('config', null);
-    if (!cfg || !cfg.profile.targetTitles.length) return resolve();
+    // Career tracks carry their own titles, so a profile with tracks but no general titles is still searched.
+    if (!cfg || !buildQueries(cfg.profile).length) {
+      CapacitorKV.set('status', JSON.stringify({ at: new Date().toISOString(), found: 0, fresh: 0, error: 'no-profile' }));
+      return resolve({ found: 0, fresh: 0 });
+    }
     const seen = new Set<string>([...cfg.known, ...kvGet<string[]>('seen2', [])]);
-    const deep = deepQueries(cfg.profile);
-    // The broad field of every track plus a few specific titles, paged less than in the foreground.
-    const ctx: SourceContext = { queries: [...new Set([...deep, ...buildQueries(cfg.profile).slice(0, 6)])].slice(0, 8), deep, profile: cfg.profile, keys: cfg.keys, fetchText };
+    // The broad field of every track plus a few specific titles. One page each (newest first) is enough
+    // to catch what was posted since the last hourly check and keeps the run short.
+    const queries = [...new Set([...deepQueries(cfg.profile), ...buildQueries(cfg.profile).slice(0, 6)])].slice(0, 8);
+    const ctx: SourceContext = { queries, deep: [], profile: cfg.profile, keys: cfg.keys, fetchText };
+    const errors: string[] = [];
     const remoteOk = cfg.profile.prefs.workplaces.includes('remote');
     const found: Job[] = [];
     for (const s of SOURCES) {
@@ -61,8 +79,8 @@ addEventListener('checkJobs', async (resolve) => {
       if (s.id === 'google') continue; // keep the SerpApi monthly quota for foreground searches
       try {
         found.push(...(await s.search(ctx)));
-      } catch {
-        /* one failing board must not stop the others */
+      } catch (e) {
+        errors.push(`${s.id}: ${e instanceof Error ? e.message : e}`); // one failing board must not stop the others
       }
     }
     const threshold = Math.max(35, prepareThreshold(cfg.profile.prefs, 'local') - 10);
@@ -94,8 +112,10 @@ addEventListener('checkJobs', async (resolve) => {
         ]);
       }
     }
-    resolve();
-  } catch {
+    CapacitorKV.set('status', JSON.stringify({ at: new Date().toISOString(), found: found.length, fresh: fresh.length, error: errors.join(' · ') || undefined }));
+    resolve({ found: found.length, fresh: fresh.length });
+  } catch (e) {
+    CapacitorKV.set('status', JSON.stringify({ at: new Date().toISOString(), found: 0, fresh: 0, error: String(e) }));
     resolve();
   }
 });

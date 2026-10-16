@@ -119,4 +119,44 @@ public class ComposerPlugin extends Plugin {
         }
         call.resolve();
     }
+
+    /**
+     * Opens the phone maker's "Autostart" screen (Xiaomi, Oppo, Vivo, Huawei...), which those systems
+     * require before they let the hourly background check run; falls back to the app's settings page.
+     */
+    @PluginMethod
+    public void openAutostart(PluginCall call) {
+        String[][] targets = {
+            {"com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity"},
+            {"com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity"},
+            {"com.coloros.safecenter", "com.coloros.safecenter.startupapp.StartupAppListActivity"},
+            {"com.oppo.safe", "com.oppo.safe.permission.startup.StartupAppListActivity"},
+            {"com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"},
+            {"com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity"},
+            {"com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity"},
+            {"com.huawei.systemmanager", "com.huawei.systemmanager.optimize.process.ProtectActivity"},
+            {"com.letv.android.letvsafe", "com.letv.android.letvsafe.AutobootManageActivity"},
+            {"com.asus.mobilemanager", "com.asus.mobilemanager.MainActivity"},
+        };
+        JSObject ret = new JSObject();
+        for (String[] t : targets) {
+            Intent intent = new Intent();
+            intent.setComponent(new android.content.ComponentName(t[0], t[1]));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            if (intent.resolveActivity(getContext().getPackageManager()) != null) {
+                try {
+                    getActivity().startActivity(intent);
+                    ret.put("vendor", true);
+                    call.resolve(ret);
+                    return;
+                } catch (Exception ignored) {
+                    // try the next known screen
+                }
+            }
+        }
+        Intent fallback = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getContext().getPackageName()));
+        getActivity().startActivity(fallback);
+        ret.put("vendor", false);
+        call.resolve(ret);
+    }
 }

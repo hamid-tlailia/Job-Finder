@@ -10,12 +10,12 @@ import type { CvTemplate } from '../core/types';
 import { SOURCES } from '../core/sources';
 import { MODELS, testKey } from '../ai/claude';
 import { ensureNotifyPermission } from '../lib/notify';
-import { runBackgroundCheckNow, syncBackground } from '../lib/background';
+import { backgroundStatus, runBackgroundCheckNow, syncBackground, type BackgroundStatus } from '../lib/background';
 import { testNotification } from '../lib/notify';
 import { Composer } from '../lib/composer';
 import { isNative } from '../lib/http';
 import { useEffect } from 'react';
-import { BatteryCharging, BellRing, Radar } from 'lucide-react';
+import { BatteryCharging, BellRing, Radar, Rocket } from 'lucide-react';
 
 export default function Settings() {
   const { t, lang } = useT();
@@ -235,11 +235,14 @@ function TemplateThumb({ kind }: { kind: 'auto' | CvTemplate }) {
 
 /** Lets the user verify notifications and lift Android's battery restrictions on background checks. */
 function BackgroundCard() {
-  const { t } = useT();
+  const { t, f, ago } = useT();
   const [battery, setBattery] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
+  const [last, setLast] = useState<BackgroundStatus>({});
   const refresh = () => {
-    if (isNative) void Composer.batteryStatus().then((r) => setBattery(r.ignoring)).catch(() => setBattery(null));
+    if (!isNative) return;
+    void Composer.batteryStatus().then((r) => setBattery(r.ignoring)).catch(() => setBattery(null));
+    void backgroundStatus().then(setLast);
   };
   useEffect(() => {
     refresh();
@@ -266,6 +269,25 @@ function BackgroundCard() {
           )}
         </div>
       )}
+      {isNative && (
+        <div className="flex items-center gap-3">
+          <Rocket className="size-5 shrink-0 text-gold" />
+          <div className="min-w-0 flex-1">
+            <div className="text-[14.5px] font-semibold">{t.settings.bgAutostart}</div>
+            <div className="text-[12.5px] leading-snug text-muted">{t.settings.bgAutostartBody}</div>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => Composer.openAutostart().catch(() => undefined)}>
+            {t.settings.bgAutostartBtn}
+          </Button>
+        </div>
+      )}
+      {isNative && (
+        <div className="rounded-2xl bg-surface-2 px-3.5 py-2.5 text-[12.5px] leading-relaxed">
+          <div className="font-semibold">{last.at ? f(t.settings.bgLast, { time: ago(last.at) }) : t.settings.bgLastNone}</div>
+          {last.at && <div className="text-muted">{f(t.settings.bgResult, { found: last.found ?? 0, fresh: last.fresh ?? 0 })}</div>}
+          {last.error && <div className="break-words text-warn">{f(t.settings.bgFailed, { msg: last.error })}</div>}
+        </div>
+      )}
       <Button
         variant="outline"
         className="w-full"
@@ -283,8 +305,9 @@ function BackgroundCard() {
           onClick={async () => {
             setBusy(true);
             try {
-              await runBackgroundCheckNow();
-              toast(t.settings.bgRunDone);
+              const r = await runBackgroundCheckNow();
+              setLast(r);
+              toast(r.at ? f(t.settings.bgResult, { found: r.found ?? 0, fresh: r.fresh ?? 0 }) : t.settings.bgRunDone);
             } catch (e) {
               toast(e instanceof Error ? e.message : String(e));
             } finally {

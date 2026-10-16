@@ -5,6 +5,7 @@ export interface ComposerPlugin {
   whatsapp(o: { phone: string; text: string; attachments: string[] }): Promise<{ opened: boolean }>;
   batteryStatus(): Promise<{ ignoring: boolean }>;
   requestBatteryExemption(): Promise<void>;
+  openAutostart(): Promise<{ vendor: boolean }>;
 }
 
 /** Native Android intents (see android/.../ComposerPlugin.java): email and WhatsApp with PDF attachments. */

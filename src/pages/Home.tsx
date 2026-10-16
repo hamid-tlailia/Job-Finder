@@ -189,7 +189,7 @@ export default function Home() {
               <button
                 key={tr.id}
                 onClick={() => setTrackFilter(tr.id)}
-                className={`h-8 shrink-0 rounded-xl px-3.5 text-[12.5px] font-bold transition-colors ${trackFilter === tr.id ? 'bg-gold text-[#2a1a10]' : 'border border-line bg-surface text-muted'}`}
+                className={`h-8 shrink-0 rounded-xl px-3.5 text-[12.5px] font-bold transition-colors ${trackFilter === tr.id ? 'bg-gold text-white' : 'border border-line bg-surface text-muted'}`}
               >
                 {tr.name}
                 {tr.id !== 'all' && <span className="ms-1.5 tabular-nums opacity-70">{fits[tr.id]?.size ?? 0}</span>}

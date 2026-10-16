@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, MotionConfig } from 'motion/react';
 import { Briefcase, Compass, Inbox, UserRound } from 'lucide-react';
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { Component, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
@@ -93,6 +93,37 @@ function TabBar() {
   );
 }
 
+/** Shows what went wrong (instead of a blank screen) and lets the user go back home. */
+class ErrorBoundary extends Component<{ children: ReactNode }, { error?: Error }> {
+  state: { error?: Error } = {};
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  render() {
+    const { error } = this.state;
+    if (!error) return this.props.children;
+    const ar = useStore.getState().settings.uiLang === 'ar';
+    return (
+      <div className="px-5 pt-safe">
+        <div className="card mt-8 space-y-3 p-5">
+          <h2 className="text-lg font-bold">{ar ? 'حدث خطأ في هذه الصفحة' : 'This page hit an error'}</h2>
+          <pre dir="ltr" className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-surface-2 p-3 text-[11.5px] text-muted">{`${error.message}\n${error.stack ?? ''}`.slice(0, 1500)}</pre>
+          <button
+            className="h-11 w-full rounded-2xl bg-ink font-semibold text-bg"
+            onClick={() => {
+              useNav.setState({ stack: [] });
+              useNav.getState().setTab('home');
+              this.setState({ error: undefined });
+            }}
+          >
+            {ar ? 'العودة للرئيسية' : 'Back to home'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+}
+
 function Main() {
   const { tab, stack, dir } = useNav();
   const top = stack[stack.length - 1];
@@ -105,9 +136,12 @@ function Main() {
   return (
     <>
       {/* No exit animation: a leaving tab kept in the page made short tabs (Review) scroll as long as Home. */}
-      <motion.main key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="min-h-full pb-28">
-        <TabPage />
-      </motion.main>
+      {/* Tabs switch instantly, like Android's bottom navigation; an animated wrapper left tabs blank on some phones. */}
+      <main key={tab} className="min-h-full pb-28">
+        <ErrorBoundary key={tab}>
+          <TabPage />
+        </ErrorBoundary>
+      </main>
       <TabBar />
       <AnimatePresence custom={dir}>
         {top && (
@@ -119,10 +153,12 @@ function Main() {
             exit={{ x: `${100 * sign}%` }}
             transition={{ type: 'spring', stiffness: 320, damping: 34 }}
           >
-            {top.name === 'job' && <JobDetail id={top.id} />}
-            {top.name === 'settings' && <Settings />}
-            {top.name === 'editProfile' && <EditProfile section={top.section} />}
-            {top.name === 'track' && <EditTrack id={top.id} />}
+            <ErrorBoundary>
+              {top.name === 'job' && <JobDetail id={top.id} />}
+              {top.name === 'settings' && <Settings />}
+              {top.name === 'editProfile' && <EditProfile section={top.section} />}
+              {top.name === 'track' && <EditTrack id={top.id} />}
+            </ErrorBoundary>
           </motion.div>
         )}
       </AnimatePresence>
@@ -189,7 +225,9 @@ export default function App() {
       <AnimatePresence mode="wait">
         {onboarded ? (
           <motion.div key="main" className="h-full" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <Main />
+            <ErrorBoundary>
+              <Main />
+            </ErrorBoundary>
           </motion.div>
         ) : started ? (
           <motion.div key="ob" className="h-full" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>

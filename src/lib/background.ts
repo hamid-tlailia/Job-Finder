@@ -9,7 +9,7 @@ const LABEL = 'qa.jobfinder.app.check';
 /** Copies what the background check needs (profile, keys, already-known jobs) into the runner's storage. */
 export async function syncBackground(): Promise<void> {
   if (!isNative) return;
-  const { profile, settings, jobs } = useStore.getState();
+  const { profile, settings, jobs, matches } = useStore.getState();
   const known = Object.values(jobs).flatMap((j) => [j.id, dedupeKey(j)]);
   try {
     await BackgroundRunner.dispatchEvent({
@@ -22,6 +22,8 @@ export async function syncBackground(): Promise<void> {
         uiLang: settings.uiLang,
         notifications: settings.notifications,
         known: known.slice(-1500),
+        waiting: Object.values(matches).filter((m) => m.status === 'ready' && jobs[m.jobId]).length,
+        syncedAt: Date.now(),
       },
     });
   } catch {

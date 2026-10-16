@@ -13,13 +13,35 @@ export async function ensureNotifyPermission(): Promise<boolean> {
   return (await Notification.requestPermission()) === 'granted';
 }
 
-export async function notifyReady(count: number): Promise<void> {
+const NOTIFIED_KEY = 'jf-notified';
+
+/** Job ids already announced, so the same jobs never trigger a second notification. */
+function notified(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(NOTIFIED_KEY) ?? '[]') as string[];
+  } catch {
+    return [];
+  }
+}
+
+/** Announces prepared applications, once per job; nothing is sent when every job was announced before. */
+export async function notifyReady(jobIds: string[]): Promise<void> {
+  const before = new Set(notified());
+  const fresh = jobIds.filter((id) => !before.has(id));
+  if (!fresh.length) return;
+  try {
+    localStorage.setItem(NOTIFIED_KEY, JSON.stringify([...before, ...fresh].slice(-800)));
+  } catch {
+    /* storage unavailable */
+  }
+  const count = fresh.length;
   const ar = useStore.getState().settings.uiLang === 'ar';
   const title = ar ? `✨ ${count} وظائف جاهزة للمراجعة` : `✨ ${count} applications ready to review`;
   const body = ar ? 'جهّزنا لك السيرة الذاتية وخطاب التقديم. راجعها واضغط إرسال.' : 'Your tailored CV and cover letter are ready. Review and tap send.';
   try {
     if (isNative) {
-      await LocalNotifications.schedule({ notifications: [{ id: Date.now() % 2147483647, title, body, extra: { route: '/inbox' }, smallIcon: 'ic_stat_notify', largeIcon: 'ic_notify_large' }] });
+      // A fixed id replaces an older "ready" notification instead of stacking another one.
+      await LocalNotifications.schedule({ notifications: [{ id: 4243, title, body, extra: { route: '/inbox' }, smallIcon: 'ic_stat_notify', largeIcon: 'ic_notify_large' }] });
     } else if ('Notification' in window && Notification.permission === 'granted') {
       new Notification(title, { body, icon: '/icon-192.png' });
     }

@@ -74,7 +74,8 @@ export function enrich(job: Job): Job {
   };
 }
 
-const ELSEWHERE = /saudi|ksa|riyadh|jeddah|dammam|\buae\b|dubai|abu dhabi|sharjah|kuwait|oman|muscat|bahrain|manama|egypt|cairo|jordan|amman|lebanon|beirut|turkey|istanbul|india|mumbai|delhi|bangalore|pakistan|karachi|philippines|manila|seoul|korea|tokyo|japan|singapore|hong kong|china|shanghai|london|\buk\b|united kingdom|paris|france|germany|berlin|spain|madrid|italy|milan|usa|united states|new york|canada|toronto|australia|sydney|malaysia|kuala lumpur|thailand|bangkok|indonesia|jakarta|vietnam|morocco|tunisia|algeria|kenya|nigeria|south africa|السعودية|الرياض|جدة|الإمارات|دبي|أبوظبي|الكويت|عمان|مسقط|البحرين|مصر|الأردن/i;
+// Whole words only: "Lusail" contains "usa" and must not count as the United States.
+const ELSEWHERE = /\b(?:saudi|ksa|riyadh|jeddah|dammam|uae|dubai|abu dhabi|sharjah|kuwait|oman|muscat|bahrain|manama|egypt|cairo|jordan|amman|lebanon|beirut|turkey|istanbul|india|mumbai|delhi|bangalore|pakistan|karachi|philippines|manila|seoul|korea|tokyo|japan|singapore|hong kong|china|shanghai|london|uk|united kingdom|paris|france|germany|berlin|spain|madrid|italy|milan|usa|united states|new york|canada|toronto|australia|sydney|malaysia|kuala lumpur|thailand|bangkok|indonesia|jakarta|vietnam|morocco|tunisia|algeria|kenya|nigeria|south africa)\b|السعودية|الرياض|جدة|الإمارات|دبي|أبوظبي|الكويت|عمان|مسقط|البحرين|مصر|الأردن/i;
 
 /** Keeps only jobs located in Qatar (remote roles too, but only when they are explicitly based in Qatar). */
 export function onlyQatar(jobs: Job[]): Job[] {

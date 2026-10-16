@@ -16,6 +16,9 @@ interface Config {
   uiLang: 'ar' | 'en';
   notifications: boolean;
   known: string[];
+  /** Prepared applications waiting in Review when the app last synced. */
+  waiting?: number;
+  syncedAt?: number;
 }
 
 function kvGet<T>(k: string, fallback: T): T {
@@ -29,6 +32,7 @@ function kvGet<T>(k: string, fallback: T): T {
 }
 
 const lastHit: Record<string, number> = {};
+const DAY = 864e5;
 
 async function fetchText(url: string, init: { method?: string; headers?: Record<string, string>; body?: string } = {}): Promise<string> {
   // Space requests to one host like the app does; LinkedIn answers bursts with HTTP 429.
@@ -111,6 +115,22 @@ addEventListener('checkJobs', async (resolve) => {
           },
         ]);
       }
+    }
+    // One reminder a day at most, only while prepared applications wait and the app has not been opened for a day.
+    const now = Date.now();
+    if (!fresh.length && cfg.notifications && (cfg.waiting ?? 0) > 0 && now - (cfg.syncedAt ?? now) > DAY && now - kvGet<number>('remindedAt', 0) > DAY) {
+      CapacitorKV.set('remindedAt', JSON.stringify(now));
+      const ar = cfg.uiLang === 'ar';
+      CapacitorNotifications.schedule([
+        {
+          id: 4244,
+          title: ar ? `⏰ ${cfg.waiting} طلبات جاهزة تنتظرك` : `⏰ ${cfg.waiting} applications are waiting`,
+          body: ar ? 'السيرة وخطاب التقديم جاهزان. راجعها وأرسلها قبل أن تُغلق الوظائف.' : 'Your CV and cover letter are ready. Review and send before the jobs close.',
+          smallIcon: 'ic_stat_notify', largeIcon: 'ic_notify_large',
+          actionTypeId: 'open_review',
+          autoCancel: true,
+        },
+      ]);
     }
     CapacitorKV.set('status', JSON.stringify({ at: new Date().toISOString(), found: found.length, fresh: fresh.length, error: errors.join(' · ') || undefined }));
     resolve({ found: found.length, fresh: fresh.length });

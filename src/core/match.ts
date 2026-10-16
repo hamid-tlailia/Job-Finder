@@ -268,6 +268,7 @@ export function prepareThreshold(prefs: Profile['prefs'], by: 'ai' | 'local'): n
 
 /** True when a match should be prepared without asking. */
 export function isStrongMatch(prefs: Profile['prefs'], score: number, analysis?: Analysis): boolean {
-  if (prefs.minScoreAuto !== false && analysis?.by === 'ai') return analysis.verdict === 'excellent' || analysis.verdict === 'good' || score >= 60;
+  // A "good" verdict only counts with a score to match, so an inconsistent answer cannot prepare a weak job.
+  if (prefs.minScoreAuto !== false && analysis?.by === 'ai') return score >= 60 || ((analysis.verdict === 'excellent' || analysis.verdict === 'good') && score >= 50);
   return score >= prepareThreshold(prefs, analysis?.by ?? 'local');
 }

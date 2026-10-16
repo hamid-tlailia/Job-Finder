@@ -71,7 +71,7 @@ export async function prepare(jobId: string): Promise<void> {
 }
 
 /** Filters, de-duplicates, scores and (for strong matches) prepares a batch of fetched jobs. */
-async function processJobs(all: Job[], c: SourceContext, errors: string[]): Promise<{ fresh: number; ready: number }> {
+async function processJobs(all: Job[], c: SourceContext, errors: string[]): Promise<{ fresh: number; ready: number; readyIds: string[] }> {
   const { settings, profile } = useStore.getState();
   const fresh: Job[] = [];
   const st = useStore.getState();
@@ -102,6 +102,7 @@ async function processJobs(all: Job[], c: SourceContext, errors: string[]): Prom
   const candidates = scored.filter((x) => x.ls.score >= threshold).slice(0, settings.apiKey ? settings.maxAiPerRun : 15);
   useStore.getState().setRun({ step: 'analyze', done: 0, total: candidates.length });
   let ready = 0;
+  const readyIds: string[] = [];
   if (settings.autoPrepare) {
     await settle(candidates, settings.apiKey ? 3 : 4, async ({ j }) => {
       try {
@@ -133,6 +134,7 @@ async function processJobs(all: Job[], c: SourceContext, errors: string[]): Prom
         if (isStrongMatch(profile.prefs, score, analysis)) {
           await prepare(j.id);
           ready++;
+          readyIds.push(j.id);
         }
       } catch (e) {
         errors.push(`${j.title}: ${e instanceof Error ? e.message : e}`);
@@ -143,7 +145,7 @@ async function processJobs(all: Job[], c: SourceContext, errors: string[]): Prom
     });
   }
 
-  return { fresh: fresh.length, ready };
+  return { fresh: fresh.length, ready, readyIds };
 }
 
 /**
@@ -204,13 +206,16 @@ export async function runSearch(): Promise<{ found: number; fresh: number; ready
     }
   });
 
-  all.push(...(await drainBackground()));
-  const { fresh, ready } = await processJobs(all, c, errors);
+  // Jobs from the background check were already announced by its own notification.
+  const fromBackground = await drainBackground();
+  all.push(...fromBackground);
+  const announced = new Set(fromBackground.map((j) => j.id));
+  const { fresh, ready, readyIds } = await processJobs(all, c, errors);
 
   useStore.getState().prune();
   useStore.getState().setLastRun(new Date().toISOString());
   useStore.getState().setRun({ running: false, step: '', errors });
-  if (ready > 0 && settings.notifications) await notifyReady(ready);
+  if (settings.notifications) await notifyReady(readyIds.filter((id) => !announced.has(id)));
   void syncBackground();
   return { found: all.length, fresh, ready };
 }

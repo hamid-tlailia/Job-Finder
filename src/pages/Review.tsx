@@ -16,11 +16,15 @@ export default function Review() {
   const below = Object.values(matches).filter((m) => m.status === 'new' && jobs[m.jobId] && listable([jobs[m.jobId]]).length > 0).length;
   const list = Object.values(matches)
     .filter((m) => (m.status === 'ready' || m.status === 'preparing') && jobs[m.jobId])
-    .sort((a, b) => Number(a.seen) - Number(b.seen) || scoreOf(b, jobs[b.jobId]) - scoreOf(a, jobs[a.jobId]));
+    .sort((a, b) => scoreOf(b, jobs[b.jobId]) - scoreOf(a, jobs[a.jobId])); // best fit first
   return (
     <div className="px-4 pt-safe">
-      <h1 className="font-display px-1 pb-1 pt-6 text-[1.85rem] font-bold">{t.review.title}</h1>
-      <p className="px-1 pb-5 text-sm text-muted">{list.length > 0 ? `${list.length}` : ''}</p>
+      <div className="flex items-center gap-3 px-1 pb-5 pt-6">
+        <h1 className="font-display text-[1.85rem] font-bold">{t.review.title}</h1>
+        {list.length > 0 && (
+          <span className="grid h-8 min-w-8 place-items-center rounded-full bg-accent px-2.5 text-[14px] font-bold tabular-nums text-white shadow-[0_6px_16px_-8px_var(--glow)]">{list.length}</span>
+        )}
+      </div>
       {list.length === 0 ? (
         <Empty
           icon={<Inbox className="size-9" />}

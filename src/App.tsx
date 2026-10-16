@@ -131,17 +131,21 @@ function Main() {
   // Screens enter from the reading-start edge and leave the same way: right in Arabic, left in English.
   const sign = rtl ? 1 : -1;
   // Each tab opens at its top instead of at the previous tab's scroll position.
-  useLayoutEffect(() => window.scrollTo(0, 0), [tab]);
+  // Braces matter: an effect must return nothing or a cleanup function, and on Android's WebView
+  // window.scrollTo returns a value, which React then tried to call ("l is not a function").
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+  }, [tab]);
   const TabPage = { home: Home, review: Review, tracker: Tracker, profile: ProfilePage }[tab];
   return (
     <>
       {/* No exit animation: a leaving tab kept in the page made short tabs (Review) scroll as long as Home. */}
-      {/* Tabs switch instantly, like Android's bottom navigation; an animated wrapper left tabs blank on some phones. */}
-      <main key={tab} className="min-h-full pb-28">
+      {/* Enter animation only: an exit animation kept the leaving tab mounted, so short tabs scrolled as long as Home. */}
+      <motion.main key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="min-h-full pb-28">
         <ErrorBoundary key={tab}>
           <TabPage />
         </ErrorBoundary>
-      </main>
+      </motion.main>
       <TabBar />
       <AnimatePresence custom={dir}>
         {top && (

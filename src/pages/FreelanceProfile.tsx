@@ -1,13 +1,14 @@
 import { motion } from 'motion/react';
-import { ArrowLeft, ArrowRight, Check, FileCheck2, FileUp } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Copy, FileCheck2, FileUp, Wand2 } from 'lucide-react';
+import { Clipboard } from '@capacitor/clipboard';
 import { useRef, useState } from 'react';
 import { useT } from '../i18n';
 import { useNav } from '../ui/nav';
-import { Button, Field, Input, Slider, TagInput, TextArea, Toggle, toast } from '../ui/kit';
+import { Button, Field, Input, Segmented, Slider, TagInput, TextArea, Toggle, toast } from '../ui/kit';
 import { useGigs } from '../store/useGigs';
 import { aiCfg, hasAi, useStore } from '../store/useStore';
 import { readCvFile } from '../lib/cvImport';
-import { parseFreelancerCv } from '../ai/claude';
+import { parseFreelancerCv, writeFreelanceBio } from '../ai/claude';
 import { DEFAULT_KEYWORDS, GIG_SOURCES } from '../core/gigs';
 
 export default function FreelanceProfile() {
@@ -17,6 +18,20 @@ export default function FreelanceProfile() {
   const setFp = useGigs((s) => s.setFp);
   const settings = useStore((s) => s.settings);
   const [reading, setReading] = useState(false);
+  const [bioLang, setBioLang] = useState<'ar' | 'en'>('ar');
+  const [writingBio, setWritingBio] = useState(false);
+  const bio = fp.bio?.[bioLang] ?? '';
+  const writeBio = async () => {
+    setWritingBio(true);
+    try {
+      const text = await writeFreelanceBio(aiCfg(settings), useGigs.getState().fp, bioLang);
+      setFp({ bio: { ...useGigs.getState().fp.bio, [bioLang]: text } });
+    } catch (e) {
+      toast(e instanceof Error ? e.message : String(e));
+    } finally {
+      setWritingBio(false);
+    }
+  };
   const fileRef = useRef<HTMLInputElement>(null);
   const Back = lang === 'ar' ? ArrowRight : ArrowLeft;
 
@@ -93,6 +108,25 @@ export default function FreelanceProfile() {
           <Field label={t.fl.portfolio}>
             <TextArea dir="auto" rows={5} value={fp.portfolio} placeholder={t.fl.portfolioPh} onChange={(e) => setFp({ portfolio: e.target.value })} />
           </Field>
+        </section>
+
+        <section className="card space-y-4 p-5">
+          <div>
+            <h3 className="text-[15px] font-bold">{t.fl.bioTitle}</h3>
+            <p className="mt-1 text-[13px] leading-relaxed text-muted">{t.fl.bioHint}</p>
+          </div>
+          <Segmented value={bioLang} onChange={setBioLang} options={[{ id: 'ar', label: t.fl.bioAr }, { id: 'en', label: t.fl.bioEn }]} />
+          {bio && <TextArea dir={bioLang === 'ar' ? 'rtl' : 'ltr'} rows={14} value={bio} onChange={(e) => setFp({ bio: { ...fp.bio, [bioLang]: e.target.value } })} />}
+          <div className="flex gap-2">
+            <Button variant={bio ? 'outline' : 'gold'} className="min-w-0 flex-1 basis-0" loading={writingBio} disabled={!hasAi(settings)} icon={<Wand2 className="size-4" />} onClick={writeBio}>
+              {bio ? t.fl.bioRewrite : t.fl.bioWrite}
+            </Button>
+            {bio && (
+              <Button variant="outline" className="min-w-0 flex-1 basis-0" icon={<Copy className="size-4" />} onClick={() => Clipboard.write({ string: bio }).then(() => toast(t.common.copied))}>
+                {t.common.copy}
+              </Button>
+            )}
+          </div>
         </section>
 
         <section className="card space-y-5 p-5">

@@ -15,6 +15,7 @@ import { BackgroundRunner } from '@capacitor/background-runner';
 import { onNotificationTap } from './lib/notify';
 import { syncBackground } from './lib/background';
 import { runGigSearch } from './lib/gigPipeline';
+import { useGigs } from './store/useGigs';
 import Welcome from './pages/Welcome';
 import Onboarding from './pages/Onboarding';
 import Home from './pages/Home';
@@ -66,6 +67,8 @@ function TabBar() {
   const { tab, setTab } = useNav();
   const rtl = useStore((s) => s.settings.uiLang === 'ar');
   const index = Math.max(0, TABS.findIndex((x) => x.id === tab));
+  // Freelance projects whose proposal is written and waiting to be sent.
+  const gigReady = useGigs((s) => Object.values(s.matches).filter((m) => m.status === 'ready' && s.gigs[m.gigId]).length);
   // Everything waiting in Review, opened or not, so the badge matches the list.
   const readyCount = useStore((s) => Object.values(s.matches).filter((m) => (m.status === 'ready' || m.status === 'preparing') && s.jobs[m.jobId]).length);
   return (
@@ -91,9 +94,9 @@ function TabBar() {
             >
               <span className="relative grid h-8 w-12 place-items-center">
                 <Icon className="relative size-5" strokeWidth={active ? 2.4 : 1.9} />
-                {id === 'review' && readyCount > 0 && (
+                {(id === 'review' ? readyCount : id === 'freelance' ? gigReady : 0) > 0 && (
                   <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-1 end-2 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-accent px-1 text-[10px] text-white ring-2 ring-[var(--surface)]">
-                    {readyCount}
+                    {id === 'review' ? readyCount : gigReady}
                   </motion.span>
                 )}
               </span>

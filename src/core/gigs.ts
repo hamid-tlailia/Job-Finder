@@ -42,6 +42,8 @@ export interface FreelanceProfile {
   sources: Record<GigSourceId, boolean>;
   /** Proposals written automatically per refresh. */
   autoDrafts: number;
+  /** Profile bio for freelance platforms (Mostaql "النبذة التعريفية", Freelancer summary). */
+  bio?: { ar?: string; en?: string };
 }
 
 export const DEFAULT_KEYWORDS = ['react native', 'expo', 'react', 'node.js', 'next.js', 'javascript', 'typescript', 'mobile app', 'pwa', 'full stack', 'api', 'firebase', 'mongodb', 'تطبيق جوال', 'تطبيق', 'موقع', 'برمجة', 'رياكت'];

@@ -485,3 +485,26 @@ const FreelancerCvSchema = z.object({
 export async function parseFreelancerCv(cfg: AiConfig, cvText: string): Promise<z.infer<typeof FreelancerCvSchema>> {
   return structured(cfg, FreelancerCvSchema, 'low', `Extract the developer's freelance profile from this CV. Only use what the CV says.\n\n<cv>\n${cvText.slice(0, 30000)}\n</cv>`, 3000, undefined, FREELANCE_SYSTEM);
 }
+
+const BioSchema = z.object({ bio: z.string().describe('the bio text, ready to paste') });
+
+/** Profile bio for freelance platforms, from the developer's real CV and portfolio. */
+export async function writeFreelanceBio(cfg: AiConfig, fp: FreelanceProfile, lang: Lang): Promise<string> {
+  const r = await structured(
+    cfg,
+    BioSchema,
+    'medium',
+    `Write the developer's profile bio for freelance platforms (Mostaql "النبذة التعريفية", Freelancer.com summary) in ${lang === 'ar' ? 'clear professional Modern Standard Arabic; keep technology names in English' : 'natural, confident English'}.
+- 150-230 words, plain text, short paragraphs and a short list; no emojis, no clichés ("hard-working", "passionate"), no first line like "Hello, my name is".
+- Open with what clients get: the kind of products built end to end (web apps, React Native mobile apps, backends), for whom.
+- Services the client can order, as a short list.
+- Stack, grouped briefly (frontend & mobile, backend & data, cloud & deployment).
+- 2-3 real projects from the CV/portfolio, one line each (what it is, stack). Never invent projects, clients, numbers or ratings.
+- How they work: clear scope, regular progress updates, delivery with source code and deployment.
+- End with a one-line invitation to message about the project.`,
+    3000,
+    freelancerBrief(fp),
+    FREELANCE_SYSTEM,
+  );
+  return r.bio.trim();
+}

@@ -127,7 +127,7 @@ export default function Freelance() {
     <div className="px-4 pt-safe">
       <div className="flex items-center justify-between gap-3 px-1 pb-1 pt-6">
         <div className="flex min-w-0 items-center gap-3">
-          <h1 className="font-display truncate text-[1.85rem] font-bold">{t.fl.title}</h1>
+          <h1 className="font-display text-[1.85rem] font-bold leading-tight">{t.fl.tab}</h1>
           {counts.ready > 0 && <span className="grid h-8 min-w-8 place-items-center rounded-full bg-accent px-2.5 text-[14px] font-bold tabular-nums text-white">{counts.ready}</span>}
         </div>
         <button onClick={() => push({ name: 'freelanceProfile' })} className="grid size-11 shrink-0 place-items-center rounded-full border border-line bg-surface" aria-label={t.fl.setup}>
@@ -149,9 +149,13 @@ export default function Freelance() {
 
       <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-3">
         {(['all', 'ready', 'new', 'applied'] as Filter[]).map((k) => (
-          <button key={k} onClick={() => setFilter(k)} className={`h-9 shrink-0 rounded-full px-4 text-[13px] font-semibold transition-colors ${filter === k ? 'bg-ink text-bg' : 'border border-line bg-surface text-muted'}`}>
+          <button key={k} onClick={() => setFilter(k)} className={`inline-flex h-9 shrink-0 items-center rounded-full px-4 text-[13px] font-semibold transition-colors ${filter === k ? 'bg-ink text-bg' : 'border border-line bg-surface text-muted'}`}>
             {t.fl.filters[k]}
-            {k !== 'all' && counts[k] > 0 && <span className="ms-1.5 tabular-nums opacity-70">{counts[k]}</span>}
+            {k === 'ready' && counts.ready > 0 ? (
+              <span className="ms-1.5 inline-grid h-5 min-w-5 place-items-center rounded-full bg-accent px-1.5 text-[11px] font-bold tabular-nums text-white">{counts.ready}</span>
+            ) : (
+              k !== 'all' && counts[k] > 0 && <span className="ms-1.5 tabular-nums opacity-70">{counts[k]}</span>
+            )}
           </button>
         ))}
       </div>

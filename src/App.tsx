@@ -59,11 +59,20 @@ const TABS: { id: Tab; icon: typeof Compass }[] = [
 function TabBar() {
   const { t } = useT();
   const { tab, setTab } = useNav();
+  const rtl = useStore((s) => s.settings.uiLang === 'ar');
+  const index = Math.max(0, TABS.findIndex((x) => x.id === tab));
   // Everything waiting in Review, opened or not, so the badge matches the list.
   const readyCount = useStore((s) => Object.values(s.matches).filter((m) => (m.status === 'ready' || m.status === 'preparing') && s.jobs[m.jobId]).length);
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface shadow-[0_-8px_24px_-14px_rgba(0,0,0,0.4)]" style={{ paddingBottom: 'var(--sab)' }}>
-      <div className="mx-auto flex max-w-xl px-2 pt-1.5 pb-1">
+    <motion.nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface shadow-[0_-8px_24px_-14px_rgba(0,0,0,0.4)]" style={{ paddingBottom: 'var(--sab)' }}>
+      <div className="relative mx-auto flex max-w-xl px-2 pt-1.5 pb-1">
+        {/* One pill sliding by column. A shared-layout (layoutId) pill was measured against the page and
+            flew in from below whenever a tab change reset the scroll position. */}
+        <div aria-hidden className="pointer-events-none absolute inset-x-2 top-2 h-8">
+          <motion.div className="flex h-full w-1/4 justify-center" initial={false} animate={{ x: `${(rtl ? -1 : 1) * index * 100}%` }} transition={spring}>
+            <span className="h-8 w-12 rounded-[11px]" style={{ background: 'var(--pill)' }} />
+          </motion.div>
+        </div>
         {TABS.map(({ id, icon: Icon }) => {
           const active = tab === id;
           return (
@@ -76,7 +85,6 @@ function TabBar() {
               className={`flex flex-1 flex-col items-center gap-1 py-0.5 text-[11px] font-semibold transition-colors ${active ? 'text-accent' : 'text-muted'}`}
             >
               <span className="relative grid h-8 w-12 place-items-center">
-                {active && <motion.span layoutId="tab-pill" transition={spring} className="absolute inset-0 rounded-[11px]" style={{ background: 'var(--pill)' }} />}
                 <Icon className="relative size-5" strokeWidth={active ? 2.4 : 1.9} />
                 {id === 'review' && readyCount > 0 && (
                   <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-1 end-2 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-accent px-1 text-[10px] text-white ring-2 ring-[var(--surface)]">
@@ -89,7 +97,7 @@ function TabBar() {
           );
         })}
       </div>
-    </nav>
+    </motion.nav>
   );
 }
 

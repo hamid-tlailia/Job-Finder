@@ -2,7 +2,7 @@ import { Download } from 'lucide-react';
 import { useState } from 'react';
 import { EMPTY, useStore } from '../store/useStore';
 import { useT } from '../i18n';
-import { Button, Chip, Field, Segmented, Sheet, toast } from './kit';
+import { Button, Chip, Field, Segmented, Sheet, Toggle, toast } from './kit';
 import { downloadFieldCv } from '../lib/fieldCv';
 import type { CvTemplate, Lang } from '../core/types';
 
@@ -16,6 +16,7 @@ export function CvDownloadSheet({ open, onClose, trackId }: { open: boolean; onC
   const [lang, setLang] = useState<Lang>(cvLang === 'auto' ? ui : cvLang);
   const [template, setTemplate] = useState<CvTemplate>(tpl === 'executive' ? 'executive' : 'classic');
   const [busy, setBusy] = useState(false);
+  const [fresh, setFresh] = useState(false);
   return (
     <Sheet open={open} onClose={onClose} title={t.aiTools.downloadTitle}>
       <div className="space-y-5 pb-4">
@@ -36,6 +37,7 @@ export function CvDownloadSheet({ open, onClose, trackId }: { open: boolean; onC
         <Field label={t.aiTools.design}>
           <Segmented value={template} onChange={setTemplate} options={[{ id: 'classic', label: t.templates.classic }, { id: 'executive', label: t.templates.executive }]} />
         </Field>
+        <Toggle checked={fresh} onChange={setFresh} label={t.aiTools.fresh} hint={t.aiTools.freshHint} />
         <Button
           size="lg"
           variant="gold"
@@ -45,7 +47,7 @@ export function CvDownloadSheet({ open, onClose, trackId }: { open: boolean; onC
           onClick={async () => {
             setBusy(true);
             try {
-              await downloadFieldCv(target === 'general' ? undefined : target, lang, template);
+              await downloadFieldCv(target === 'general' ? undefined : target, lang, template, fresh);
               onClose();
             } catch (e) {
               toast(e instanceof Error ? e.message : String(e));

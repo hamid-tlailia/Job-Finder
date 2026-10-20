@@ -1,6 +1,7 @@
 import { pickChannel } from '../core/template';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, ArrowRight, Bookmark, Briefcase, Check, CircleAlert, Copy, Eye, FileText, Globe, Mail, MapPin, MessageCircle, RefreshCw, Send, Sparkles, Wallet, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Bookmark, Briefcase, Check, CircleAlert, Copy, Eye, FileText, Globe, Mail, MapPin, MessageCircle, Plus, RefreshCw, Send, Sparkles, Wallet, X } from 'lucide-react';
+import { addSkillToTrack } from '../lib/masterCv';
 import { useEffect, useState } from 'react';
 import { Browser } from '@capacitor/browser';
 import { useStore } from '../store/useStore';
@@ -41,6 +42,60 @@ function humanize(item: string, t: Dict, lang: Lang): string {
     default:
       return item;
   }
+}
+
+/**
+ * Keyword check against the posting. The CV itself is the track's CV (same file for every job of the track);
+ * a missing keyword the person really has can be added to the track for good with one tap.
+ */
+function KeywordPanel({ pkg, onAdd, onMoved }: { pkg: ApplicationPackage; onAdd: (k: string) => void; onMoved: (k: string) => void }) {
+  const { t, f } = useT();
+  const track = useStore((s) => s.profile.tracks?.find((x) => x.id === pkg.trackId));
+  const k = pkg.keywords;
+  if (!k) return null;
+  const total = k.covered.length + k.added.length + k.missing.length;
+  const pct = total ? Math.round(((k.covered.length + k.added.length) / total) * 100) : 0;
+  const chip = 'inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[12.5px] font-semibold';
+  return (
+    <section className="space-y-3 rounded-2xl border border-line bg-surface-2/60 p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h4 className="text-[14px] font-bold">{t.kw.title}</h4>
+        <span className={`rounded-full px-2.5 py-1 text-[12px] font-bold ${pct >= 75 ? 'bg-ok/15 text-ok' : pct >= 50 ? 'bg-gold-soft text-gold' : 'bg-accent-soft text-accent'}`}>{pct}%</span>
+      </div>
+      <p className="text-[12.5px] leading-relaxed text-muted">{track ? f(t.kw.trackCv, { track: track.name }) : t.kw.generalCv}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {k.covered.map((x) => (
+          <span key={x} className={`${chip} bg-ok/10 text-ok`}><Check className="size-3.5" />{x}</span>
+        ))}
+        {k.added.map((x) => (
+          <span key={x} className={`${chip} bg-gold-soft text-gold`}><Sparkles className="size-3.5" />{x}</span>
+        ))}
+      </div>
+      {k.missing.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-[12.5px] font-semibold text-muted">{t.kw.missing}</div>
+          <div className="flex flex-wrap gap-1.5">
+            {k.missing.map((x) => (
+              <button
+                key={x}
+                type="button"
+                onClick={() => {
+                  addSkillToTrack(pkg.trackId, x);
+                  onAdd(x);
+                  onMoved(x);
+                  toast(f(t.kw.added, { k: x }));
+                }}
+                className={`${chip} border border-dashed border-line text-muted`}
+              >
+                <Plus className="size-3.5" />{x}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11.5px] leading-relaxed text-muted">{t.kw.honest}</p>
+        </div>
+      )}
+    </section>
+  );
 }
 
 export default function JobDetail({ id }: { id: string }) {
@@ -290,6 +345,7 @@ export default function JobDetail({ id }: { id: string }) {
                 <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }} className="mt-4 space-y-4" dir={pkg.language === 'ar' ? 'rtl' : 'ltr'}>
                   {tab === 'cv' && (
                     <>
+                      <KeywordPanel pkg={pkg} onAdd={(k) => setCv({ skills: [k, ...pkg.cv.skills], skillGroups: pkg.cv.skillGroups?.map((g, i) => (i === 0 ? { ...g, items: [k, ...g.items] } : g)) })} onMoved={(k) => setPkg({ keywords: pkg.keywords && { ...pkg.keywords, missing: pkg.keywords.missing.filter((x) => x !== k), added: [...pkg.keywords.added, k] } })} />
                       <div dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                         <Field label={t.job.template}>
                           <Segmented value={pkg.template ?? 'classic'} onChange={(v) => setPkg({ template: v })} options={[{ id: 'classic', label: t.templates.classic }, { id: 'executive', label: t.templates.executive }]} />

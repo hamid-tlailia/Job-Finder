@@ -1,8 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import * as z from 'zod/v4';
-import type { Analysis, ApplicationPackage, CvTemplate, Job, Lang, Profile, TailoredCv } from '../core/types';
-import { chooseTemplate, contactLine, personalLine, pickChannel, pickLanguage } from '../core/template';
+import type { Analysis, ApplicationPackage, CvTemplate, Job, Lang, MasterCv, Profile, TailoredCv } from '../core/types';
+import { chooseTemplate, contactLine, personalLine, pickChannel, plainDashes } from '../core/template';
 import { cityOf } from '../core/qatar';
 import type { FreelanceProfile, Gig } from '../core/gigs';
 import { geminiAvailable, geminiStructured, isGemini } from './gemini';
@@ -23,7 +23,14 @@ function client(cfg: AiConfig): Anthropic {
 }
 
 const SYSTEM = `You are a senior recruitment consultant and career coach specialised in the Qatar job market (Doha, Lusail, Al Rayyan, Ras Laffan, Mesaieed...). You know local hiring norms: Qatari nationals priority (Qatarization), visa sponsorship, NOC and transferable visas, QID, typical QAR salary ranges, and that most private-sector roles hire in English while government and many local firms prefer Arabic.
-Absolute rule: never invent experience, employers, degrees, certifications, numbers or skills the candidate does not have. You may reorder, rephrase, emphasise and quantify only what the candidate's data supports.`;
+Absolute rule: never invent experience, employers, degrees, certifications, numbers or skills the candidate does not have. You may reorder, rephrase, emphasise and quantify only what the candidate's data supports.
+When you comment to the user (summaries, reasons, gaps, messages), speak to them directly in the second person ("you" / "أنت"): "you have…", "you lack…", "you can…". Never refer to them by a name or in the third person.`;
+
+/** Writing rules that keep CVs and letters sounding like the person wrote them. */
+const HUMAN_STYLE = `Write like an experienced professional, not like an AI:
+- No em dashes (—) or en dashes as punctuation; use commas, full stops or "and".
+- Avoid these words and their Arabic equivalents: leverage, spearhead, dynamic, passionate, results-driven, detail-oriented, adept, seamless, robust, delve, synergy, cutting-edge, proven track record, thrive, fast-paced, go-getter, "I am writing to express", "I am excited to".
+- Plain, specific verbs (managed, handled, reduced, trained, built). Vary sentence length. No emojis, no bold, no hashtags.`;
 
 /**
  * One structured call. `candidate` (the profile) goes into a cached system block: a search analyses
@@ -80,10 +87,10 @@ function jobBrief(j: Job): string {
 const AnalysisSchema = z.object({
   score: z.number().describe('0-100 overall fit, honest and calibrated'),
   verdict: z.enum(['excellent', 'good', 'fair', 'weak']),
-  reasons: z.array(z.string()).describe('3-5 short reasons the candidate fits, in the UI language'),
-  gaps: z.array(z.string()).describe('0-4 short concrete gaps or risks (visa, language, years, location, missing skill), in the UI language'),
+  reasons: z.array(z.string()).describe('3-5 short reasons you fit, written to the user in the second person ("you have…"), in the UI language'),
+  gaps: z.array(z.string()).describe('0-4 short concrete gaps or risks (visa, language, years, location, missing skill), in the second person ("you don\'t have…"), in the UI language'),
   keyRequirements: z.array(z.string()).describe('the 4-8 most important requirements from the posting'),
-  summary: z.string().describe('two sentences in the UI language: what the role is and whether to apply'),
+  summary: z.string().describe('two sentences in the UI language, speaking to the user directly: what the role is and whether you should apply'),
   jobLanguage: z.enum(['ar', 'en']).describe('the language the employer expects the application in'),
   contactEmail: z.string().describe('email to send the application to if the posting gives one, else empty'),
   whatsappNumber: z.string().describe('WhatsApp number in +974 format if the posting asks to apply by WhatsApp, else empty'),
@@ -136,68 +143,76 @@ const ExperienceSchema = z.object({
 });
 
 const PackageSchema = z.object({
-  headline: z.string(),
-  summary: z.string().describe('3-4 line professional summary tailored to this job'),
-  skills: z.array(z.string()).describe('10-16 skills, most relevant to the job first, using the posting wording where truthful'),
-  skillGroups: z.array(z.object({ name: z.string(), items: z.array(z.string()) })).describe('the same skills organised into 2-4 categories such as Technical, Software & Tools, Professional, each with 3-6 items'),
-  highlights: z.array(z.string()).describe('3-4 career highlights: the candidate\'s strongest achievements most relevant to this job, one line each, quantified where the data supports it'),
-  experience: z.array(ExperienceSchema).describe('the candidate roles in reverse chronological order; dates as "Mon YYYY" (or the Arabic month name), end empty if current; 3-5 bullets each, most relevant first, each starting with a strong action verb and stating scope or a measurable result when the candidate data supports it, max ~25 words'),
-  education: z.array(z.object({ degree: z.string(), school: z.string(), year: z.string() })),
-  certifications: z.array(z.string()),
-  languages: z.array(z.string()),
-  coverLetter: z.string().describe('250-350 words, specific to the company and role, no placeholders'),
+  coverLetter: z.string().describe('250-330 words, specific to the company and role, no placeholders'),
   emailSubject: z.string(),
-  emailBody: z.string().describe('short email (90-140 words) to send with the CV attached'),
+  emailBody: z.string().describe('short email (80-130 words) to send with the CV attached'),
   whatsappMessage: z.string().describe('polite WhatsApp message under 70 words'),
   formAnswers: z.array(z.object({ question: z.string(), answer: z.string() })).describe('answers to the screening questions this employer will likely ask: motivation, expected salary in QAR, notice period, visa/QID status, relevant experience'),
-  atsKeywords: z.array(z.string()).describe('keywords from the posting now covered by the CV'),
+  keywords: z.array(z.string()).describe('the 8-15 most important ATS keywords of the posting (skills, tools, certifications, duties), worded as in the posting'),
+  addSkills: z.array(z.string()).describe('posting keywords the candidate truly has according to their profile or CV text but that are NOT yet in the CV skills below; worded as in the posting; max 6; empty if none'),
 });
 
-export async function generatePackage(cfg: AiConfig, p: Profile, job: Job, analysis?: Analysis, templatePref: 'auto' | CvTemplate = 'auto'): Promise<ApplicationPackage> {
-  const lang = p.prefs.cvLanguage !== 'auto' ? p.prefs.cvLanguage : analysis?.language ?? pickLanguage(job, p);
+/** Merges job keywords the candidate has into the CV skills (front of the first group), without duplicates. */
+function withSkills(cv: MasterCv, add: string[]): MasterCv {
+  const has = new Set([...cv.skills, ...(cv.skillGroups ?? []).flatMap((g) => g.items)].map((x) => x.trim().toLowerCase()));
+  const fresh = [...new Set(add.map((x) => x.trim()).filter((x) => x && !has.has(x.toLowerCase())))];
+  if (!fresh.length) return cv;
+  const groups = cv.skillGroups?.length ? cv.skillGroups.map((g, i) => (i === 0 ? { ...g, items: [...fresh, ...g.items] } : g)) : cv.skillGroups;
+  return { ...cv, skills: [...fresh, ...cv.skills], skillGroups: groups };
+}
+
+/** True when the CV mentions the keyword anywhere (skills, summary, roles). */
+function covers(cv: MasterCv, k: string): boolean {
+  const text = JSON.stringify([cv.headline, cv.summary, cv.skills, cv.skillGroups, cv.highlights, cv.experience, cv.certifications]).toLowerCase();
+  return text.includes(k.trim().toLowerCase());
+}
+
+/**
+ * The application for one job. The CV is the track's CV (same file for every job of the track, so it is easy to
+ * find and review before an interview); only the job's keywords the candidate truly has are added to its skills.
+ * The AI writes the letter and messages.
+ */
+export async function generatePackage(cfg: AiConfig, p: Profile, job: Job, analysis: Analysis | undefined, templatePref: 'auto' | CvTemplate, master: MasterCv, lang: Lang, trackId?: string): Promise<ApplicationPackage> {
   const r = await structured(
     cfg,
     PackageSchema,
     'medium',
-    `Write the complete application for this job in ${lang === 'ar' ? 'Modern Standard Arabic (formal, professional)' : 'professional British/International English'}.
-- Tailor the CV to pass ATS screening for this exact posting: mirror its keywords where truthful, lead with the most relevant achievements, keep it to what fits on 1-2 pages.
-- CV style: concise, factual, recruiter-friendly. No first person ("I"), no clichés ("hard-working", "team player"), no photo-style personal data beyond what is given. Summary: 3-4 lines stating title, years of experience, core expertise and the value brought to this employer.
-- The cover letter must name the company and role, connect 2-3 concrete achievements to the key requirements, and mention availability and visa status positively when relevant.
-- Sign everything with the candidate's real name and phone. Never use placeholders like [Company].
+    `Write the application documents for this job in ${lang === 'ar' ? 'Modern Standard Arabic (formal, professional)' : 'professional British/International English'}.
+- The CV is fixed (shown below); do not rewrite it. List the posting's key ATS keywords, and in addSkills only the ones the candidate truly has (supported by their profile or CV text) that the CV skills do not list yet.
+- The cover letter must name the company and role, connect 2-3 concrete achievements from the CV to the key requirements, and mention availability and visa status positively when relevant.
+- Sign with the candidate's real name and phone. Never use placeholders like [Company].
+${HUMAN_STYLE}
 ${analysis?.keyRequirements.length ? `Key requirements: ${analysis.keyRequirements.join('; ')}` : ''}
 
 The candidate is in the system prompt.
 
+<cv>
+${JSON.stringify({ headline: master.headline, summary: master.summary, skills: master.skills, experience: master.experience.map((e) => ({ title: e.title, company: e.company, bullets: e.bullets })) })}
+</cv>
+
 <job>
 ${jobBrief(job)}
 </job>`,
-    16000,
+    8000,
     profileBrief(p),
   );
+  const cv = withSkills(master, r.addSkills);
+  const added = r.addSkills.filter((k) => !covers(master, k));
+  const covered = r.keywords.filter((k) => covers(master, k));
+  const missing = r.keywords.filter((k) => !covers(cv, k));
   const { channel, target } = pickChannel(job);
+  const { createdAt: _c, ...body } = cv;
   return {
     language: lang,
-    cv: {
-      language: lang,
-      name: p.fullName,
-      headline: r.headline,
-      contact: contactLine(p, lang),
-      summary: r.summary,
-      personal: personalLine(p, lang),
-      skills: r.skills,
-      skillGroups: r.skillGroups.filter((g) => g.items.length),
-      highlights: r.highlights,
-      experience: r.experience,
-      education: r.education,
-      certifications: r.certifications,
-      languages: r.languages,
-    },
-    coverLetter: r.coverLetter,
-    emailSubject: r.emailSubject,
-    emailBody: r.emailBody,
-    whatsappMessage: r.whatsappMessage,
-    formAnswers: r.formAnswers,
-    atsKeywords: r.atsKeywords,
+    cv: { ...body, language: lang, name: p.fullName, contact: contactLine(p, lang), personal: personalLine(p, lang) },
+    coverLetter: plainDashes(r.coverLetter),
+    emailSubject: r.emailSubject.replace(/\s+[—–]\s+/g, ' - '),
+    emailBody: plainDashes(r.emailBody),
+    whatsappMessage: plainDashes(r.whatsappMessage),
+    formAnswers: r.formAnswers.map((f) => ({ ...f, answer: plainDashes(f.answer) })),
+    atsKeywords: [...covered, ...added],
+    keywords: { covered, added, missing },
+    trackId,
     channel,
     target,
     template: chooseTemplate(p, job, templatePref),
@@ -389,7 +404,7 @@ export async function generateFieldCv(cfg: AiConfig, p: Profile, lang: Lang): Pr
     GenericCvSchema,
     'medium',
     `Write a complete, ATS-friendly CV for this candidate targeting the field described by their headline and target titles (${p.targetTitles.slice(0, 4).join(', ')}), in ${lang === 'ar' ? 'Modern Standard Arabic' : 'professional English'}.
-Lead with the experience and skills most relevant to that field; keep other roles brief so there are no gaps. Skills grouped into 2-4 categories; 3-4 highlights. Dates as "Mon YYYY". Never invent facts.
+Lead with the experience and skills most relevant to that field; keep other roles brief so there are no gaps. Skills grouped into 2-4 categories; 3-4 highlights. Dates as "Mon YYYY". Never invent facts. No first person in the CV.\n${HUMAN_STYLE}
 
 <candidate>
 ${profileBrief(p)}
@@ -401,7 +416,8 @@ ${profileBrief(p)}
 /* ── Freelance projects ──────────────────────────────────────────────────────────────────── */
 
 const FREELANCE_SYSTEM = `You are an experienced freelance consultant for software developers on Mostaql, Freelancer.com and remote job boards. You judge projects the way a successful senior freelancer does: real fit with the developer's stack, realistic budget and scope, client seriousness, and warning signs (pay-to-start, moving payment off the platform, vague scope with tiny budget, account or data "recovery", cheating or illegal work, clone-an-app-for-$30).
-Absolute rule: never invent experience, projects, clients or numbers the developer does not have.`;
+Absolute rule: never invent experience, projects, clients or numbers the developer does not have.
+In analysis text speak to the developer directly in the second person ("you" / "أنت"); never use a name or the third person. Only sign proposals with the exact name given in the profile; if no name is given, do not sign with a name.`;
 
 function freelancerBrief(fp: FreelanceProfile): string {
   return JSON.stringify({ name: fp.name, headline: fp.headline, skills: fp.keywords, portfolio: fp.portfolio, hourlyRateUsd: fp.hourlyRateUsd, cv: fp.cvText.slice(0, 10000) }, null, 1);
@@ -414,9 +430,9 @@ function gigBrief(g: Gig): string {
 const GigAnalysisSchema = z.object({
   score: z.number().describe('0-100 fit for THIS developer: stack match, scope they can deliver well, budget worth their time, competition'),
   verdict: z.enum(['excellent', 'good', 'fair', 'weak']),
-  summary: z.string().describe('2 short sentences in the UI language: what the client really needs and whether to bid'),
-  reasons: z.array(z.string()).describe('up to 3 short reasons it fits, UI language'),
-  risks: z.array(z.string()).describe('up to 3 short warnings (scope, budget, client, competition, red flags), UI language; empty if none'),
+  summary: z.string().describe('2 short sentences in the UI language, speaking to the developer directly ("you" / "أنت"): what the client really needs and whether you should bid'),
+  reasons: z.array(z.string()).describe('up to 3 short reasons it fits you, second person, UI language'),
+  risks: z.array(z.string()).describe('up to 3 short warnings (scope, budget, client, competition, red flags), second person, UI language; empty if none'),
   scamRisk: z.enum(['low', 'medium', 'high']),
   suggestedPrice: z.number().describe('a competitive but fair bid in USD for the scope (per hour if the project is hourly)'),
   deliveryDays: z.number().describe('realistic delivery time in days'),
@@ -463,7 +479,8 @@ Rules — clients skim the first two lines and reject anything that reads like a
 - 3-4 short numbered steps of how you will do it, with the tech you would use.
 - Delivery time and price, aligned with bidAmount and deliveryDays.
 - End with ONE specific question that shows understanding and invites a reply.
-- Sign with the developer's first name.
+- Sign with the developer's first name exactly as given in the profile (omit the signature if no name is given).
+${HUMAN_STYLE}
 ${a ? `Suggested price ${a.suggestedPrice} USD, delivery ${a.deliveryDays} days — adjust if the scope requires.` : ''}
 
 <project>
@@ -501,7 +518,8 @@ export async function writeFreelanceBio(cfg: AiConfig, fp: FreelanceProfile, lan
 - Stack, grouped briefly (frontend & mobile, backend & data, cloud & deployment).
 - 2-3 real projects from the CV/portfolio, one line each (what it is, stack). Never invent projects, clients, numbers or ratings.
 - How they work: clear scope, regular progress updates, delivery with source code and deployment.
-- End with a one-line invitation to message about the project.`,
+- End with a one-line invitation to message about the project.
+${HUMAN_STYLE}`,
     3000,
     freelancerBrief(fp),
     FREELANCE_SYSTEM,

@@ -6,6 +6,7 @@ export interface ComposerPlugin {
   batteryStatus(): Promise<{ ignoring: boolean }>;
   requestBatteryExemption(): Promise<void>;
   openAutostart(): Promise<{ vendor: boolean }>;
+  applyWeb(o: { url: string; cv: string; letter: string; lang: 'ar' | 'en' }): Promise<void>;
 }
 
 /** Native Android intents (see android/.../ComposerPlugin.java): email and WhatsApp with PDF attachments. */

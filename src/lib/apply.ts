@@ -3,25 +3,35 @@ import { Clipboard } from '@capacitor/clipboard';
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import type { ApplicationPackage, Channel, Job, Profile } from '../core/types';
-import { buildApplicationPdf, buildCvPdf, buildLetterPdf } from './pdf';
+import { buildApplicationPdf, buildCvPdf, buildLetterPdf, pdfFile } from './pdf';
 import { loadFonts } from './fonts';
 import { isNative } from './http';
 import { Composer } from './composer';
 
+const safe = (s: string) => s.replace(/[^\p{L}\p{N}]+/gu, '_').replace(/^_|_$/g, '').slice(0, 40);
+
 function fileBase(p: Profile, job: Job, kind: string): string {
-  const safe = (s: string) => s.replace(/[^\p{L}\p{N}]+/gu, '_').replace(/^_|_$/g, '').slice(0, 40);
   return `${safe(p.fullName) || 'CV'}_${kind}_${safe(job.company || job.title)}.pdf`;
+}
+
+/** The CV keeps one name per track and language, so it is the same file for every job of the track. */
+export function cvFileName(p: Profile, trackId: string | undefined, lang: 'ar' | 'en'): string {
+  const track = p.tracks?.find((t) => t.id === trackId);
+  return `${safe(p.fullName) || 'CV'}_${lang === 'ar' ? 'سيرة' : 'CV'}${track ? `_${safe(track.name)}` : ''}_${lang.toUpperCase()}.pdf`;
 }
 
 export async function buildPdfs(p: Profile, job: Job, pkg: ApplicationPackage) {
   const fonts = await loadFonts();
-  const cv = buildCvPdf(pkg.cv, fonts, pkg.template ?? 'classic');
-  const letter = buildLetterPdf(pkg.cv, pkg.coverLetter, { company: job.company, jobTitle: job.title }, fonts, pkg.template ?? 'classic');
-  const both = buildApplicationPdf(pkg.cv, pkg.coverLetter, { company: job.company, jobTitle: job.title }, fonts, pkg.template ?? 'classic');
+  const t = pkg.template ?? 'classic';
+  const meta = { company: job.company, jobTitle: job.title };
+  const ar = pkg.language === 'ar';
+  const cv = pdfFile(buildCvPdf(pkg.cv, fonts, t), p.fullName, ar ? 'السيرة الذاتية' : 'Curriculum Vitae');
+  const letter = pdfFile(buildLetterPdf(pkg.cv, pkg.coverLetter, meta, fonts, t), p.fullName, ar ? 'خطاب التقديم' : 'Cover Letter');
+  const both = pdfFile(buildApplicationPdf(pkg.cv, pkg.coverLetter, meta, fonts, t), p.fullName, ar ? 'طلب توظيف' : 'Application');
   return {
-    both: { name: fileBase(p, job, pkg.language === 'ar' ? 'طلب_توظيف' : 'Application'), data: both.output('datauristring').split(',')[1], blob: both.output('blob') },
-    cv: { name: fileBase(p, job, pkg.language === 'ar' ? 'سيرة' : 'CV'), data: cv.output('datauristring').split(',')[1], blob: cv.output('blob') },
-    letter: { name: fileBase(p, job, pkg.language === 'ar' ? 'خطاب' : 'Cover_Letter'), data: letter.output('datauristring').split(',')[1], blob: letter.output('blob') },
+    both: { name: fileBase(p, job, ar ? 'طلب_توظيف' : 'Application'), ...both },
+    cv: { name: cvFileName(p, pkg.trackId, pkg.language), ...cv },
+    letter: { name: fileBase(p, job, ar ? 'خطاب' : 'Cover_Letter'), ...letter },
   };
 }
 
@@ -102,13 +112,15 @@ export async function sendApplication(p: Profile, job: Job, pkg: ApplicationPack
   // Website: the cover letter goes to the clipboard and the CV is saved, ready to upload in the form.
   await Clipboard.write({ string: pkg.coverLetter });
   if (isNative) {
+    // A copy in Downloads (same name for the whole track) so the CV is easy to find later.
+    await Filesystem.writeFile({ path: `Download/${files.cv.name}`, data: files.cv.data, directory: Directory.ExternalStorage, recursive: true }).catch(() => undefined);
+    const cv = await writeCache(files.cv.name, files.cv.data);
+    // The page opens inside the app: when it asks for a file, the CV is offered first (one tap to attach).
     try {
-      await Filesystem.writeFile({ path: `Download/${files.cv.name}`, data: files.cv.data, directory: Directory.ExternalStorage, recursive: true });
+      await Composer.applyWeb({ url: target, cv, letter: pkg.coverLetter, lang: pkg.language });
     } catch {
-      const uri = await writeCache(files.cv.name, files.cv.data);
-      await Share.share({ title: files.cv.name, files: [uri] });
+      await Browser.open({ url: target, presentationStyle: 'fullscreen' });
     }
-    await Browser.open({ url: target, presentationStyle: 'fullscreen' });
   } else {
     download(files.cv.name, files.cv.blob);
     window.open(target, '_blank');

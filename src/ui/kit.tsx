@@ -1,6 +1,7 @@
+import { useStore } from '../store/useStore';
 import { AnimatePresence, motion, useDragControls, type HTMLMotionProps } from 'motion/react';
 import { Check, Loader2, X } from 'lucide-react';
-import { isValidElement, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { isValidElement, useEffect, useState, type ReactNode } from 'react';
 import { haptic } from './haptics';
 
 export const spring = { type: 'spring', stiffness: 420, damping: 34 } as const;
@@ -81,21 +82,20 @@ export function ChipGroup<T extends string>({ options, value, onChange, multi = 
 export function Segmented<T extends string>({ options, value, onChange }: { options: { id: T; label: string; icon?: ReactNode }[]; value: T; onChange: (v: T) => void }) {
   // One indicator that slides horizontally by index; a shared-layout animation would
   // mis-measure inside scrolled screens and fly in from below.
-  const ref = useRef<HTMLDivElement>(null);
-  const [rtl, setRtl] = useState(false);
-  useLayoutEffect(() => {
-    if (ref.current) setRtl(getComputedStyle(ref.current).direction === 'rtl');
-  });
+  // Direction comes from the language setting (not the DOM), so switching Arabic/English moves the
+  // indicator in the same frame the row flips instead of sliding outside it for a moment.
+  const rtl = useStore((s) => s.settings.uiLang === 'ar');
   const index = Math.max(0, options.findIndex((o) => o.id === value));
   const n = options.length;
+  const visual = rtl ? n - 1 - index : index;
   return (
-    <div ref={ref} className="relative flex rounded-2xl border border-line bg-surface-2 p-1">
+    <div dir={rtl ? 'rtl' : 'ltr'} className="relative flex overflow-hidden rounded-2xl border border-line bg-surface-2 p-1">
       <motion.span
         aria-hidden
         className="absolute bottom-1 top-1 rounded-xl bg-surface shadow-sm"
-        style={{ width: `calc((100% - 8px) / ${n})`, insetInlineStart: 4 }}
+        style={{ width: `calc((100% - 8px) / ${n})`, left: 4 }}
         initial={false}
-        animate={{ x: `${(rtl ? -1 : 1) * index * 100}%` }}
+        animate={{ x: `${visual * 100}%` }}
         transition={spring}
       />
       {options.map((o) => (

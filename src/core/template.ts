@@ -25,19 +25,38 @@ export function pickChannel(job: Job): { channel: Channel; target: string } {
 }
 
 const VISA = {
-  en: { citizen: 'Qatari national', resident_transferable: 'Qatar resident — transferable visa', resident_noc: 'Qatar resident — NOC available', family_visa: 'Family visa (no sponsorship needed)', need_sponsorship: 'Requires visa sponsorship' },
-  ar: { citizen: 'مواطن قطري', resident_transferable: 'مقيم في قطر — إقامة قابلة للتحويل', resident_noc: 'مقيم في قطر — يتوفر NOC', family_visa: 'إقامة عائلية (لا يحتاج كفالة)', need_sponsorship: 'يحتاج كفالة وتأشيرة' },
+  en: { citizen: 'Qatari national', resident_transferable: 'Qatar resident, transferable visa', resident_noc: 'Qatar resident, NOC available', family_visa: 'Family visa (no sponsorship needed)', need_sponsorship: 'Requires visa sponsorship' },
+  ar: { citizen: 'مواطن قطري', resident_transferable: 'مقيم في قطر، إقامة قابلة للتحويل', resident_noc: 'مقيم في قطر، يتوفر NOC', family_visa: 'إقامة عائلية (لا يحتاج كفالة)', need_sponsorship: 'يحتاج كفالة وتأشيرة' },
 };
 const AVAIL = {
   en: { immediate: 'Immediate', two_weeks: 'Within 2 weeks', one_month: 'Within 1 month', two_months_plus: 'After notice period' },
   ar: { immediate: 'فوري', two_weeks: 'خلال أسبوعين', one_month: 'خلال شهر', two_months_plus: 'بعد فترة الإشعار' },
 };
 
+/** Nationalities common in Qatar, so the CV prints them in its own language (no mixed Arabic/English line). */
+const NATIONALITIES: [string, string, string][] = [
+  ['Tunisian', 'تونسي', 'تونسية'], ['Egyptian', 'مصري', 'مصرية'], ['Moroccan', 'مغربي', 'مغربية'], ['Algerian', 'جزائري', 'جزائرية'],
+  ['Jordanian', 'أردني', 'أردنية'], ['Lebanese', 'لبناني', 'لبنانية'], ['Syrian', 'سوري', 'سورية'], ['Palestinian', 'فلسطيني', 'فلسطينية'],
+  ['Sudanese', 'سوداني', 'سودانية'], ['Iraqi', 'عراقي', 'عراقية'], ['Yemeni', 'يمني', 'يمنية'], ['Libyan', 'ليبي', 'ليبية'],
+  ['Qatari', 'قطري', 'قطرية'], ['Saudi', 'سعودي', 'سعودية'], ['Emirati', 'إماراتي', 'إماراتية'], ['Kuwaiti', 'كويتي', 'كويتية'],
+  ['Omani', 'عماني', 'عمانية'], ['Bahraini', 'بحريني', 'بحرينية'], ['Mauritanian', 'موريتاني', 'موريتانية'], ['Somali', 'صومالي', 'صومالية'],
+  ['Indian', 'هندي', 'هندية'], ['Pakistani', 'باكستاني', 'باكستانية'], ['Filipino', 'فلبيني', 'فلبينية'], ['Bangladeshi', 'بنغلاديشي', 'بنغلاديشية'],
+  ['Nepali', 'نيبالي', 'نيبالية'], ['Sri Lankan', 'سريلانكي', 'سريلانكية'], ['Kenyan', 'كيني', 'كينية'], ['Turkish', 'تركي', 'تركية'],
+  ['Iranian', 'إيراني', 'إيرانية'], ['British', 'بريطاني', 'بريطانية'], ['French', 'فرنسي', 'فرنسية'], ['American', 'أمريكي', 'أمريكية'],
+];
+
+export function nationalityIn(value: string, lang: Lang): string {
+  const v = value.trim().replace(/^ال/, '');
+  const row = NATIONALITIES.find(([en, m, f]) => en.toLowerCase() === v.toLowerCase() || m === v || f === v || m.replace(/^أ|^إ/, 'ا') === v || f.replace(/^أ|^إ/, 'ا') === v);
+  if (!row) return value;
+  return lang === 'en' ? row[0] : row[1];
+}
+
 /** Personal details Gulf employers look for at the top of a CV. */
 export function personalLine(p: Profile, lang: Lang): string[] {
   const ar = lang === 'ar';
   return [
-    p.nationality && `${ar ? 'الجنسية' : 'Nationality'}: ${p.nationality}`,
+    p.nationality && `${ar ? 'الجنسية' : 'Nationality'}: ${nationalityIn(p.nationality, lang)}`,
     `${ar ? 'الإقامة' : 'Visa'}: ${VISA[lang][p.prefs.visaStatus]}`,
     `${ar ? 'متاح للعمل' : 'Availability'}: ${AVAIL[lang][p.prefs.availability]}`,
   ].filter(Boolean) as string[];
@@ -78,7 +97,7 @@ export function baseCv(p: Profile, job: Job, lang: Lang): TailoredCv {
     experience: p.experience,
     education: p.education,
     certifications: p.certifications,
-    languages: p.languages.map((l) => `${l.name} — ${l.level}`),
+    languages: p.languages.map((l) => (l.level ? `${l.name} (${l.level})` : l.name)),
   };
 }
 
@@ -94,7 +113,7 @@ export function templatePackage(p: Profile, job: Job, templatePref: 'auto' | CvT
     lang === 'ar'
       ? `السادة ${company} المحترمين،\n\nتحية طيبة وبعد،\n\nأتقدم بطلبي لشغل وظيفة "${job.title}" المعلن عنها. أعمل ${me ? `في مجال ${me}` : 'بشغف واحترافية'}${exp}${top ? `، ومتمكن من ${top}` : ''}.\n\nأرى أن خبرتي تتوافق مع متطلبات الوظيفة، وأنا متحمس للمساهمة في نجاح ${company}. أنا مقيم في قطر ومتاح للبدء ${availabilityAr(p)}.\n\nمرفق سيرتي الذاتية، وأتطلع لفرصة مناقشة كيف يمكنني إضافة قيمة لفريقكم.\n\nمع خالص التقدير،\n${p.fullName}\n${p.phone}`
       : `Dear Hiring Team at ${company},\n\nI am writing to apply for the ${job.title} position. I am ${me ? `a ${me}` : 'a dedicated professional'}${exp}${top ? `, with strengths in ${top}` : ''}.\n\nMy background aligns closely with the requirements of this role, and I am excited about the opportunity to contribute to ${company}. I am based in Qatar and available to start ${availabilityEn(p)}.\n\nPlease find my CV attached. I would welcome the chance to discuss how I can add value to your team.\n\nKind regards,\n${p.fullName}\n${p.phone}`;
-  const emailSubject = lang === 'ar' ? `طلب توظيف: ${job.title} — ${p.fullName}` : `Application: ${job.title} — ${p.fullName}`;
+  const emailSubject = lang === 'ar' ? `طلب توظيف: ${job.title} - ${p.fullName}` : `Application: ${job.title} - ${p.fullName}`;
   const whatsappMessage =
     lang === 'ar'
       ? `السلام عليكم، أنا ${p.fullName}${me ? `، ${me}` : ''}${exp}. أود التقدم لوظيفة "${job.title}". يسعدني إرسال سيرتي الذاتية. شكراً لكم.`
@@ -121,4 +140,9 @@ function availabilityEn(p: Profile): string {
 }
 function availabilityAr(p: Profile): string {
   return { immediate: 'فوراً', two_weeks: 'خلال أسبوعين', one_month: 'خلال شهر', two_months_plus: 'بعد انتهاء فترة الإشعار' }[p.prefs.availability];
+}
+
+/** Removes the long dashes AI text is known for: " — " becomes a comma (or " | " in titles). */
+export function plainDashes(text: string, title = false): string {
+  return text.replace(/\s+[—–]\s+/g, title ? ' | ' : ', ').replace(/—/g, ', ');
 }

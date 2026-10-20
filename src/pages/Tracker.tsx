@@ -1,5 +1,6 @@
 import { motion } from 'motion/react';
-import { Briefcase } from 'lucide-react';
+import { Briefcase, FileText } from 'lucide-react';
+import { previewPdf } from '../lib/apply';
 import { useStore } from '../store/useStore';
 import { useT } from '../i18n';
 import { CompanyAvatar, Empty } from '../ui/kit';
@@ -11,7 +12,7 @@ const COLORS: Record<string, string> = { applied: 'bg-accent-soft text-accent', 
 
 export default function Tracker() {
   const { t, f, ago } = useT();
-  const { matches, jobs, setStatus } = useStore();
+  const { matches, jobs, setStatus, profile } = useStore();
   const push = useNav((s) => s.push);
   const list = Object.values(matches)
     .filter((m) => STAGES.includes(m.status) && jobs[m.jobId])
@@ -47,6 +48,13 @@ export default function Tracker() {
                   </div>
                 </button>
                 <div className="no-scrollbar mt-3 flex gap-1.5 overflow-x-auto">
+                  {m.pkg && (
+                    // The exact CV this employer received, to review before an interview.
+                    <button onClick={() => void previewPdf(profile, job, m.pkg!, 'cv')} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-gold-soft px-3 text-xs font-bold text-gold">
+                      <FileText className="size-3.5" />
+                      {t.kw.sentCv}
+                    </button>
+                  )}
                   {STAGES.map((s) => (
                     <button key={s} onClick={() => setStatus(m.jobId, s)} className={`relative h-8 shrink-0 rounded-full px-3 text-xs font-semibold ${m.status === s ? COLORS[s] : 'border border-line text-muted'}`}>
                       {t.tracker.status[s as keyof typeof t.tracker.status]}

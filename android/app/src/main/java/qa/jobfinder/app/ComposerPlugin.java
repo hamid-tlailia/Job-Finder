@@ -160,4 +160,17 @@ public class ComposerPlugin extends Plugin {
         ret.put("vendor", false);
         call.resolve(ret);
     }
+
+    /** Opens an application page inside the app with the CV ready to attach (see ApplyWebActivity). */
+    @PluginMethod
+    public void applyWeb(PluginCall call) {
+        Intent intent = new Intent(getContext(), ApplyWebActivity.class);
+        intent.putExtra("url", call.getString("url", ""));
+        String cv = call.getString("cv", "");
+        if (!cv.isEmpty()) intent.putExtra("cvPath", Uri.parse(cv).getPath());
+        intent.putExtra("letter", call.getString("letter", ""));
+        intent.putExtra("lang", call.getString("lang", "en"));
+        getActivity().startActivity(intent);
+        call.resolve();
+    }
 }

@@ -1,27 +1,21 @@
-import type { CvTemplate, Job, Lang, TailoredCv } from '../core/types';
-import { baseCv, contactLine, personalLine } from '../core/template';
-import { trackProfile } from '../core/match';
-import { generateFieldCv } from '../ai/claude';
-import { useStore, hasAi, aiCfg } from '../store/useStore';
-import { buildCvPdf } from './pdf';
+import type { CvTemplate, Lang, TailoredCv } from '../core/types';
+import { contactLine, personalLine } from '../core/template';
+import { useStore } from '../store/useStore';
+import { buildCvPdf, pdfFile } from './pdf';
 import { loadFonts } from './fonts';
-import { sharePdf } from './apply';
+import { cvFileName, sharePdf } from './apply';
+import { ensureMasterCv, saveMasterCv } from './masterCv';
 
-/** Builds and shares a general CV for one career track (or the whole profile), in the chosen language and design. */
-export async function downloadFieldCv(trackId: string | undefined, lang: Lang, template: CvTemplate): Promise<void> {
-  const { profile, settings } = useStore.getState();
-  const track = profile.tracks?.find((t) => t.id === trackId);
-  const view = trackProfile(profile, track);
-  let cv: TailoredCv;
-  if (hasAi(settings)) {
-    const r = await generateFieldCv(aiCfg(settings), { ...view, targetTitles: track?.targetTitles.length ? track.targetTitles : profile.targetTitles }, lang);
-    cv = { ...r, language: lang, name: profile.fullName, contact: contactLine(profile, lang), personal: personalLine(profile, lang) };
-  } else {
-    const pseudoJob = { title: view.headline, description: view.targetTitles.join(' ') } as Job;
-    cv = baseCv(view, pseudoJob, lang);
-  }
-  const doc = buildCvPdf(cv, await loadFonts(), template);
-  const safe = (x: string) => x.replace(/[^\p{L}\p{N}]+/gu, '_').replace(/^_|_$/g, '').slice(0, 40);
-  const name = `${safe(profile.fullName) || 'CV'}_${safe(track?.name || (lang === 'ar' ? 'سيرة' : 'CV'))}_${lang.toUpperCase()}.pdf`;
-  await sharePdf(name, doc.output('datauristring').split(',')[1], doc.output('blob'));
+/**
+ * Shares the CV of one career track (or the whole profile): the same saved CV that is sent with every
+ * application of the track. `fresh` rewrites it first (after the profile or track changed).
+ */
+export async function downloadFieldCv(trackId: string | undefined, lang: Lang, template: CvTemplate, fresh = false): Promise<void> {
+  if (fresh) saveMasterCv(trackId, lang, undefined);
+  const master = await ensureMasterCv(trackId, lang);
+  const { profile } = useStore.getState();
+  const { createdAt: _c, ...body } = master;
+  const cv: TailoredCv = { ...body, language: lang, name: profile.fullName, contact: contactLine(profile, lang), personal: personalLine(profile, lang) };
+  const file = pdfFile(buildCvPdf(cv, await loadFonts(), template), profile.fullName, lang === 'ar' ? 'السيرة الذاتية' : 'Curriculum Vitae');
+  await sharePdf(cvFileName(profile, trackId, lang), file.data, file.blob);
 }

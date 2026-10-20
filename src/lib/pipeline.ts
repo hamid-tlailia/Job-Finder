@@ -7,6 +7,7 @@ import { templatePackage } from '../core/template';
 import { analyzeJob, generatePackage } from '../ai/claude';
 import { aiCfg, hasAi, useStore } from '../store/useStore';
 import { fetchText } from './http';
+import { applicationLang, ensureMasterCv } from './masterCv';
 import { notifyReady } from './notify';
 import { drainBackground, syncBackground } from './background';
 
@@ -58,7 +59,11 @@ export async function prepare(jobId: string): Promise<void> {
         job = { ...job, ...r.job };
         st.upsertJob(job);
       }
-      const pkg = await generatePackage(cfg, profile, job, analysis, settings.cvTemplate);
+      // The track's CV is reused for every job of the track; only the job's keywords are added to it.
+      const trackId = useStore.getState().matches[jobId]?.trackId;
+      const lang = applicationLang(useStore.getState().profile, job, analysis?.language);
+      const master = await ensureMasterCv(trackId, lang);
+      const pkg = await generatePackage(cfg, profile, job, analysis, settings.cvTemplate, master, lang, trackId);
       st.upsertMatch(jobId, { analysis, pkg, status: 'ready' });
     } else {
       const ls = bestTrack(job, st.profile).score;

@@ -60,7 +60,12 @@ export interface CareerTrack {
   /** Text of the CV the person uses for this field (optional). */
   cvText: string;
   cvName?: string;
+  /** The track's CV, written once per language and reused for every job in the track. */
+  masterCv?: Partial<Record<Lang, MasterCv>>;
 }
+
+/** A CV without the per-person header lines, which are always filled from the current profile. */
+export type MasterCv = Omit<TailoredCv, 'language' | 'name' | 'contact' | 'personal'> & { createdAt: string };
 
 export const MAX_TRACKS = 4;
 
@@ -84,6 +89,8 @@ export interface Profile {
   cvText: string;
   /** Career tracks; empty means a single-field profile. */
   tracks: CareerTrack[];
+  /** General CV (used when the job has no track), written once per language. */
+  masterCv?: Partial<Record<Lang, MasterCv>>;
   prefs: Preferences;
 }
 
@@ -155,6 +162,10 @@ export interface ApplicationPackage {
   whatsappMessage: string;
   formAnswers: { question: string; answer: string }[];
   atsKeywords: string[];
+  /** Keyword check against the posting: covered by the track CV, added for this job (true skills), or missing. */
+  keywords?: { covered: string[]; added: string[]; missing: string[] };
+  /** Career track whose CV was used; the same file is sent for every job of the track. */
+  trackId?: string;
   channel: Channel;
   target: string;
   template?: CvTemplate;

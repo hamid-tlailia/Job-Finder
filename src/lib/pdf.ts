@@ -246,11 +246,8 @@ class Page {
     this.font(23, true, this.c.ink);
     this.put(name, this.start, this.base(23));
     this.y += this.lh(23, 1.2);
-    if (headline) {
-      this.font(12, false, this.c.accent);
-      this.put(headline, this.start, this.base(12));
-      this.y += this.lh(12, 1.45);
-    }
+    // Long titles ("Receptionist | Customer Service | Multilingual …") wrap instead of running off the page.
+    if (headline) this.para(headline, 12, { color: this.c.accent, factor: 1.4 });
     this.y += 0.8;
     if (contact.length) this.inline(contact, 9, this.c.body);
     if (personal.length) this.inline(personal, 8.6, this.c.muted);
@@ -263,7 +260,8 @@ class Page {
   band(name: string, headline: string, contact: string[], personal: string[] = []): void {
     const d = this.doc;
     const measure = () => {
-      let h = 12 + this.lh(24, 1.15) + (headline ? this.lh(12, 1.5) : 0) + 2;
+      this.font(12, false);
+      let h = 12 + this.lh(24, 1.15) + (headline ? this.wrap(headline, this.inner).length * this.lh(12, 1.4) : 0) + 2;
       this.font(9, false);
       const rows = (items: string[], size: number) => {
         if (!items.length) return 0;
@@ -283,11 +281,7 @@ class Page {
     this.font(24, true, [255, 255, 255]);
     this.put(name, this.start, this.base(24), 'start', AR.test(name) ? undefined : 0.3);
     this.y += this.lh(24, 1.15);
-    if (headline) {
-      this.font(12, false, GOLD);
-      this.put(headline, this.start, this.base(12));
-      this.y += this.lh(12, 1.5);
-    }
+    if (headline) this.para(headline, 12, { color: GOLD, factor: 1.4 });
     this.y += 2;
     if (contact.length) this.inline(contact, 9, [226, 231, 238], [120, 134, 158]);
     if (personal.length) this.inline(personal, 8.6, [178, 189, 205], [120, 134, 158]);
@@ -528,4 +522,18 @@ function writeLetter(pg: Page, cv: TailoredCv, body: string, meta: LetterMeta, t
     for (const line of para.split('\n')) pg.para(line, 10.6, { factor: 1.55 });
     pg.y += 3.2;
   }
+}
+
+/**
+ * The finished file: the person is the author and creator, and the generator name jsPDF writes into the
+ * "Producer" field is blanked (same length, so the PDF's byte offsets stay valid).
+ */
+export function pdfFile(doc: jsPDF, author: string, title: string): { data: string; blob: Blob } {
+  doc.setProperties({ author, creator: author, title });
+  const raw = doc.output().replace(/\/Producer \(([^)]*)\)/, (_m, v: string) => `/Producer (${' '.repeat(v.length)})`);
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i) & 0xff;
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return { data: btoa(bin), blob: new Blob([bytes], { type: 'application/pdf' }) };
 }

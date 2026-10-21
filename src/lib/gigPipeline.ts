@@ -1,5 +1,5 @@
 import { GIG_SOURCES, gigFresh, gigWithDetail, localGigScore, type Gig } from '../core/gigs';
-import { analyzeGig, writeProposal } from '../ai/claude';
+import { analyzeGig, inLang, writeProposal } from '../ai/claude';
 import { aiCfg, hasAi, useStore } from '../store/useStore';
 import { useGigs } from '../store/useGigs';
 import { fetchText } from './http';
@@ -8,6 +8,20 @@ import { notifyGigs } from './notify';
 
 /** Projects analysed by the AI per refresh; only the strongest local matches are sent. */
 const MAX_ANALYSED = 10;
+
+const relanguaged = new Set<string>();
+
+/** Rewrites a project analysis that is not in the app language (keeps the score). */
+export async function refreshGigLang(id: string): Promise<void> {
+  const st = useGigs.getState();
+  const { settings } = useStore.getState();
+  const m = st.matches[id], g = st.gigs[id];
+  if (!m?.analysis || !g || !hasAi(settings) || relanguaged.has(id)) return;
+  if (inLang(`${m.analysis.summary} ${m.analysis.reasons.join(' ')}`, settings.uiLang)) return;
+  relanguaged.add(id);
+  const a = await analyzeGig(aiCfg(settings, true), st.fp, g, settings.uiLang);
+  useGigs.getState().upsertMatch(id, { analysis: { ...a, score: m.analysis.score, verdict: m.analysis.verdict, suggestedPrice: m.analysis.suggestedPrice, deliveryDays: m.analysis.deliveryDays } });
+}
 
 /** Writes (or rewrites) the proposal for one project. */
 export async function draftProposal(id: string): Promise<void> {

@@ -26,6 +26,21 @@ const SYSTEM = `You are a senior recruitment consultant and career coach special
 Absolute rule: never invent experience, employers, degrees, certifications, numbers or skills the candidate does not have. You may reorder, rephrase, emphasise and quantify only what the candidate's data supports.
 When you comment to the user (summaries, reasons, gaps, messages), speak to them directly in the second person ("you" / "أنت"): "you have…", "you lack…", "you can…". Never refer to them by a name or in the third person.`;
 
+/** Text the user reads must be in the app language, even when the posting and the CV are in another one. */
+function langRule(uiLang: Lang): string {
+  return uiLang === 'ar'
+    ? 'LANGUAGE: write every user-facing text field (summary, reasons, gaps, risks, messages, names of changes) in Arabic (العربية الفصحى), even though the posting or CV may be in English. Keep only company names, product names and technology terms (React, SAP, IFRS) in their original form.'
+    : 'LANGUAGE: write every user-facing text field (summary, reasons, gaps, risks, messages, names of changes) in English, even if the posting or CV is in Arabic. Keep proper names as they are.';
+}
+
+/** True when a text is (mostly) in the given language; used to refresh analyses after a language switch. */
+export function inLang(text: string, lang: Lang): boolean {
+  const letters = text.replace(/[^\p{L}]/gu, '');
+  if (letters.length < 8) return true;
+  const arabic = (letters.match(/[\u0600-\u06FF]/g) ?? []).length / letters.length;
+  return lang === 'ar' ? arabic > 0.4 : arabic < 0.2;
+}
+
 /** Writing rules that keep CVs and letters sounding like the person wrote them. */
 const HUMAN_STYLE = `Write like an experienced professional, not like an AI:
 - No em dashes (—) or en dashes as punctuation; use commas, full stops or "and".
@@ -103,7 +118,7 @@ export async function analyzeJob(cfg: AiConfig, p: Profile, job: Job, uiLang: La
     cfg,
     AnalysisSchema,
     'low',
-    `UI language: ${uiLang === 'ar' ? 'Arabic' : 'English'}.
+    `${langRule(uiLang)}
 Score how well this Qatar job fits the candidate. If the employer or workplace belongs to an industry listed in the candidate's prefs.avoidIndustries (e.g. "hotels" covers any hotel, resort or hospitality brand), the score must be at most 10 and that must be the first gap. Weigh: role/title fit, hard skills, years and seniority, the candidate's job-type, workplace, distance and language preferences, salary floor (QAR), and visa status vs. any nationality/visa restriction in the posting. Penalise hard blockers heavily.
 
 The candidate is in the system prompt.
@@ -279,7 +294,7 @@ export async function reviewProfile(cfg: AiConfig, p: Profile, uiLang: Lang, cvO
     cfg,
     ReviewSchema,
     'low',
-    `UI language: ${uiLang === 'ar' ? 'Arabic' : 'English'}.
+    `${langRule(uiLang)}
 Compare the candidate's CV with their app profile. List every fact present in the CV that is missing from the profile, contradicts it, or is clearly richer in the CV (e.g. a job with achievements in the CV but only a title in the profile). Also suggest 2-4 target job titles and the key skills if the profile has few.
 Rules: take values only from the CV — never invent anything. Skip anything already equivalent in the profile (ignore formatting differences, e.g. phone spacing or +974 prefix). Put the value in the slot that matches the field and leave other slots null. Keep messages short. Return an empty list if the profile already reflects the CV.
 
@@ -312,7 +327,7 @@ export async function suggestTracks(cfg: AiConfig, p: Profile, uiLang: Lang, max
     cfg,
     z.object({ tracks: z.array(TrackSchema) }),
     'low',
-    `UI language: ${uiLang === 'ar' ? 'Arabic' : 'English'}.
+    `${langRule(uiLang)}
 This candidate may have worked in several unrelated fields (for example sales, reception and pharmacy). Identify the distinct career fields they can realistically apply to in Qatar, based only on their real experience, education and skills — at most ${max}. Return one track per field; if they clearly work in a single field return just one.
 Existing tracks (do not duplicate): ${JSON.stringify((p.tracks ?? []).map((t) => t.name))}
 
@@ -445,7 +460,7 @@ export async function analyzeGig(cfg: AiConfig, fp: FreelanceProfile, g: Gig, ui
     cfg,
     GigAnalysisSchema,
     'low',
-    `UI language: ${uiLang === 'ar' ? 'Arabic' : 'English'}.
+    `${langRule(uiLang)}
 Assess this freelance project for the developer in the system prompt. A project the developer cannot deliver with their stack (e.g. "Kotlin only", native iOS Swift only, WordPress theme work for a React developer) is at most 35. Set scamRisk high for pay-to-start, off-platform payment, account/data recovery or anything illegal, and then score at most 10. Many bids (40+) lower the chance of winning.
 
 <project>

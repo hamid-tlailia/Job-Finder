@@ -4,7 +4,7 @@ import { listable, settle } from '../core/sources/util';
 import { bestTrack, buildQueries, deepQueries, dedupeKey, isStrongMatch, localAnalysis, prepareThreshold, trackProfile } from '../core/match';
 import type { Analysis, Profile } from '../core/types';
 import { templatePackage } from '../core/template';
-import { analyzeJob, generatePackage } from '../ai/claude';
+import { analyzeJob, generatePackage, inLang } from '../ai/claude';
 import { aiCfg, hasAi, useStore } from '../store/useStore';
 import { fetchText } from './http';
 import { applicationLang, ensureMasterCv } from './masterCv';
@@ -37,6 +37,20 @@ function profileFor(jobId: string, job: Job): Profile {
     if (trackId) st.upsertMatch(jobId, { trackId });
   }
   return trackProfile(st.profile, tracks.find((t) => t.id === trackId));
+}
+
+const relanguaged = new Set<string>();
+
+/** Rewrites an AI analysis written in another language than the app (e.g. after switching Arabic/English). */
+export async function refreshAnalysisLang(jobId: string): Promise<void> {
+  const st = useStore.getState();
+  const m = st.matches[jobId], job = st.jobs[jobId];
+  const { settings } = st;
+  if (!m?.analysis || m.analysis.by !== 'ai' || !job || !hasAi(settings) || relanguaged.has(jobId)) return;
+  if (inLang(`${m.analysis.summary} ${m.analysis.reasons.join(' ')}`, settings.uiLang)) return;
+  relanguaged.add(jobId);
+  const r = await analyzeJob(aiCfg(settings, true), profileFor(jobId, job), job, settings.uiLang);
+  useStore.getState().upsertMatch(jobId, { analysis: { ...r.analysis, score: m.analysis.score, verdict: m.analysis.verdict } });
 }
 
 /** Prepares (or re-prepares) the tailored application for one job. */

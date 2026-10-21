@@ -10,7 +10,7 @@ import type { Dict } from '../i18n/dict';
 import type { ApplicationPackage, Channel, Lang } from '../core/types';
 import { Button, CompanyAvatar, Field, Input, ScoreRing, Segmented, Sheet, TagInput, TextArea, toast } from '../ui/kit';
 import { useNav } from '../ui/nav';
-import { prepare } from '../lib/pipeline';
+import { prepare, refreshAnalysisLang } from '../lib/pipeline';
 import { copy, previewPdf, sendApplication } from '../lib/apply';
 import { QATAR_CITIES } from '../core/qatar';
 import { inQatar, isFresh } from '../core/sources/util';
@@ -114,6 +114,11 @@ export default function JobDetail({ id }: { id: string }) {
   useEffect(() => {
     if (m && !m.seen) upsertMatch(id, { seen: true });
   }, [id, m, upsertMatch]);
+  const uiLang = useStore((s) => s.settings.uiLang);
+  // An analysis written in the other language (older version, or after switching the app language) is rewritten.
+  useEffect(() => {
+    void refreshAnalysisLang(id).catch(() => undefined);
+  }, [id, uiLang]);
 
   if (!job || !m) return null;
   const pkg = m.pkg;

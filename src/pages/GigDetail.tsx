@@ -1,13 +1,13 @@
 import { motion } from 'motion/react';
 import { ArrowLeft, ArrowRight, CircleCheck, Clock, Copy, ExternalLink, MessageSquareText, ShieldAlert, Sparkles, ThumbsDown, TriangleAlert, Wand2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Browser } from '@capacitor/browser';
 import { Clipboard } from '@capacitor/clipboard';
 import { useT } from '../i18n';
 import { useNav } from '../ui/nav';
 import { Button, Field, Input, ScoreRing, Sheet, TextArea, toast } from '../ui/kit';
 import { gigScore, useGigs } from '../store/useGigs';
-import { draftProposal } from '../lib/gigPipeline';
+import { draftProposal, refreshGigLang } from '../lib/gigPipeline';
 import { gigWithDetail } from '../core/gigs';
 import { fetchText } from '../lib/http';
 import { budgetLabel } from './Freelance';
@@ -22,6 +22,9 @@ export default function GigDetail({ id }: { id: string }) {
   const [loading, setLoading] = useState(false);
   const [ask, setAsk] = useState(false);
   const Back = lang === 'ar' ? ArrowRight : ArrowLeft;
+  useEffect(() => {
+    void refreshGigLang(id).catch(() => undefined);
+  }, [id, lang]);
   if (!g || !m) return null;
   const a = m.analysis;
   const p = m.proposal;

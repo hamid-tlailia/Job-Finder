@@ -18,6 +18,11 @@ type Filter = 'all' | 'ready' | 'new' | 'saved';
 
 const REFRESH_GAP_MS = 30 * 60000;
 
+/** Count pill: white with a black number in dark mode, black with a white number in light mode. */
+function CountBadge({ n, inverted = false }: { n: number; inverted?: boolean }) {
+  return <span className={`inline-grid h-[20px] min-w-[20px] place-items-center rounded-full px-1.5 text-[11px] font-bold tabular-nums leading-none ${inverted ? 'bg-bg text-ink' : 'bg-ink text-bg'}`}>{n}</span>;
+}
+
 export default function Home() {
   const { t, f, ago } = useT();
   const { profile, matches, jobs, run, lastRun, settings } = useStore();
@@ -50,6 +55,12 @@ export default function Home() {
     const filtered = visible.filter((m) => (filter === 'all' || (filter === 'new' ? m.status === 'new' : m.status === filter)) && (trackFilter === 'all' || fits[trackFilter]?.has(m.jobId)));
     return filtered.sort((a, b) => scoreOf(b, jobs[b.jobId]) - scoreOf(a, jobs[a.jobId])).slice(0, 120);
   }, [visible, jobs, filter, trackFilter, fits]);
+
+  // Per-status counts within the selected track, shown on the filter chips.
+  const statusCounts = useMemo(() => {
+    const inTrack = visible.filter((m) => trackFilter === 'all' || fits[trackFilter]?.has(m.jobId));
+    return { all: inTrack.length, ready: inTrack.filter((m) => m.status === 'ready').length, new: inTrack.filter((m) => m.status === 'new').length, saved: inTrack.filter((m) => m.status === 'saved').length };
+  }, [visible, fits, trackFilter]);
 
   const counts = useMemo(() => {
     const v = Object.values(matches);
@@ -176,9 +187,12 @@ export default function Home() {
 
         <div className="no-scrollbar sticky z-10 -mx-4 mt-3 flex gap-2 overflow-x-auto bg-bg px-4 py-3" style={{ top: 'var(--sat)' }}>
           {(['all', 'ready', 'new', 'saved'] as Filter[]).map((k) => (
-            <button key={k} onClick={() => setFilter(k)} className={`relative h-9 shrink-0 rounded-full px-4 text-[13px] font-semibold transition-colors ${filter === k ? 'text-white' : 'border border-line bg-surface text-muted'}`}>
+            <button key={k} onClick={() => setFilter(k)} className={`relative inline-flex h-9 shrink-0 items-center rounded-full px-4 text-[13px] font-semibold transition-colors ${filter === k ? 'text-white' : 'border border-line bg-surface text-muted'}`}>
               {filter === k && <motion.span layoutId="home-filter" className="absolute inset-0 rounded-full bg-ink" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
-              <span className={`relative ${filter === k ? 'text-bg' : ''}`}>{t.home.filters[k]}</span>
+              <span className={`relative inline-flex items-center gap-1.5 ${filter === k ? 'text-bg' : ''}`}>
+                {t.home.filters[k]}
+                <CountBadge n={statusCounts[k]} inverted={filter === k} />
+              </span>
             </button>
           ))}
         </div>
@@ -189,10 +203,10 @@ export default function Home() {
               <button
                 key={tr.id}
                 onClick={() => setTrackFilter(tr.id)}
-                className={`h-8 shrink-0 rounded-xl px-3.5 text-[12.5px] font-bold transition-colors ${trackFilter === tr.id ? 'bg-gold text-white' : 'border border-line bg-surface text-muted'}`}
+                className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-xl px-3.5 text-[12.5px] font-bold transition-colors ${trackFilter === tr.id ? 'bg-gold text-white' : 'border border-line bg-surface text-muted'}`}
               >
                 {tr.name}
-                {tr.id !== 'all' && <span className="ms-1.5 tabular-nums opacity-70">{fits[tr.id]?.size ?? 0}</span>}
+                <CountBadge n={tr.id === 'all' ? visible.length : fits[tr.id]?.size ?? 0} />
               </button>
             ))}
           </div>
